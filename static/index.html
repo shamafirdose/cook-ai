@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cook AI - Smart Zero-Waste Kitchen & AI Recipe Assistant</title>
+  <meta name="description" content="Turn what's in your fridge into delicious meals. Zero guesswork, zero food waste. Cook AI matches your pantry to foolproof recipes and tracks ingredient shelf-life.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
+          colors: {
+            orange: {
+              50: '#fff7ed', 100: '#ffedd5', 200: '#fed7aa', 300: '#fdba74',
+              400: '#fb923c', 500: '#f97316', 600: '#ea580c', 700: '#c2410c',
+              800: '#9a3412', 900: '#7c2d12'
+            },
+            amber: {
+              50: '#fffbeb', 100: '#fef3c7', 200: '#fde68a', 400: '#fbbf24',
+              500: '#f59e0b', 600: '#d97706', 700: '#b45309'
+            },
+            stone: {
+              50: '#fafaf9', 100: '#f5f5f4', 200: '#e7e5e4', 800: '#292524', 900: '#1c1917', 950: '#0c0a09'
+            }
+          },
+          boxShadow: {
+            'card': '0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03)',
+            'card-hover': '0 20px 25px -5px rgba(0, 0, 0, 0.07), 0 10px 10px -5px rgba(0, 0, 0, 0.03)',
+            'warm-glow': '0 0 35px -5px rgba(234, 88, 12, 0.4)',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
+  </style>
+</head>
+<body class="bg-[#FAF8F5] text-stone-900 antialiased selection:bg-orange-100 selection:text-orange-900">
+
+  <!-- ======================================================================= -->
+  <!-- NAVIGATION BAR                                                          -->
+  <!-- ======================================================================= -->
+  <header className="sticky top-0 z-50 bg-[#FAF8F5]/90 backdrop-blur-md border-b border-stone-200/80">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      <!-- Logo Block -->
+      <a href="/" class="flex items-center gap-3 group">
+        <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-600 text-white flex items-center justify-center text-2xl shadow-warm-glow group-hover:scale-105 transition duration-300">
+          🍳
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-xl font-black tracking-tight text-stone-900">Cook AI</span>
+            <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-400 text-stone-950">
+              Free App
+            </span>
+          </div>
+          <span class="text-[11px] font-semibold text-stone-500 block leading-none mt-0.5">Zero-Waste Kitchen Assistant</span>
+        </div>
+      </a>
+
+      <!-- Navigation Links -->
+      <nav class="hidden md:flex items-center gap-8 text-xs font-bold text-stone-600">
+        <a href="#how-it-works" class="hover:text-orange-600 transition">How It Works</a>
+        <a href="#features" class="hover:text-orange-600 transition">Zero-Waste Features</a>
+        <a href="#savings" class="hover:text-orange-600 transition">Savings Calculator</a>
+        <a href="#pricing" class="hover:text-orange-600 transition">Free vs Pro</a>
+        <a href="#feedback" class="hover:text-orange-600 transition">Feedback</a>
+      </nav>
+
+      <!-- Launch App CTAs -->
+      <div class="flex items-center gap-3">
+        <a
+          href="/app"
+          class="hidden sm:inline-block px-4 py-2.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-xs font-bold text-stone-700 transition shadow-sm active:scale-95"
+        >
+          Sign In
+        </a>
+        <a
+          href="/app"
+          class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500 hover:from-orange-700 hover:to-amber-600 text-white font-black text-xs shadow-warm-glow hover:shadow-card-hover transition active:scale-95 flex items-center gap-1.5"
+        >
+          <span>Launch App</span>
+          <span>→</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ======================================================================= -->
+  <!-- HERO SECTION                                                            -->
+  <!-- ======================================================================= -->
+  <section class="relative pt-12 pb-20 sm:pt-20 sm:pb-28 overflow-hidden">
+    <!-- Subtle Background Glow -->
+    <div class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-gradient-to-tr from-orange-400/15 via-amber-300/20 to-rose-400/10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10 space-y-7">
+      <!-- Badge -->
+      <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-orange-100/80 border border-orange-200 text-orange-950 text-xs font-black shadow-sm">
+        <span>🍲 Your Familiar Home Recipes First</span>
+        <span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+        <span class="text-orange-700 font-semibold">Not Random Internet Dishes</span>
+      </div>
+
+      <!-- Main Headline -->
+      <h1 class="text-4xl sm:text-6xl lg:text-7xl font-black text-stone-900 tracking-tight leading-[1.08]">
+        Cook what your family actually eats. <br class="hidden sm:inline" />
+        <span class="bg-gradient-to-r from-orange-600 via-amber-600 to-rose-600 bg-clip-text text-transparent">Familiar meals first.</span>
+      </h1>
+
+      <!-- Subtitle -->
+      <p class="max-w-2xl mx-auto text-base sm:text-lg text-stone-600 font-medium leading-relaxed">
+        Most cooking apps overwhelm you with complicated gourmet recipes you'll never make on a busy Tuesday. <strong>Cook AI is your personal kitchen assistant, turning what's in your pantry into familiar family favourites and suggesting new dishes whenever you're ready to explore.</strong>.
+      </p>
+
+      <!-- Hero Call-To-Actions -->
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-2">
+        <a
+          href="/app"
+          class="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500 hover:from-orange-700 hover:to-amber-600 text-white font-black text-sm tracking-wide shadow-warm-glow hover:shadow-card-hover transition active:scale-95 flex items-center justify-center gap-2"
+        >
+          <span>🍳 Launch My Kitchen App (Free)</span>
+          <span>→</span>
+        </a>
+        <a
+          href="#difference"
+          class="w-full sm:w-auto px-7 py-4 rounded-2xl bg-white hover:bg-stone-50 border border-stone-200 text-stone-700 font-bold text-sm shadow-card transition active:scale-95"
+        >
+          Why Cook AI is Different ↓
+        </a>
+      </div>
+
+      <!-- Trust Badges -->
+      <div class="pt-6 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto text-left">
+        <div class="p-3 rounded-2xl bg-white border border-stone-200/90 shadow-card flex items-center gap-3">
+          <span class="text-2xl">🍲</span>
+          <div>
+            <div class="text-xs font-black text-stone-900">Your Recipes Suggestions First</div>
+            <div class="text-[11px] text-stone-500">Everyday family meals</div>
+          </div>
+        </div>
+        <div class="p-3 rounded-2xl bg-white border border-stone-200/90 shadow-card flex items-center gap-3">
+          <span class="text-2xl">✨</span>
+          <div>
+            <div class="text-xs font-black text-stone-900">New Alternatives to explore</div>
+            <div class="text-[11px] text-stone-500">Creative new ideas to explore</div>
+          </div>
+        </div>
+        <div class="p-3 rounded-2xl bg-white border border-stone-200/90 shadow-card flex items-center gap-3">
+          <span class="text-2xl">🥑</span>
+          <div>
+            <div class="text-xs font-black text-stone-900">~$3.50+ Saved</div>
+            <div class="text-[11px] text-stone-500">Per rescued ingredient</div>
+          </div>
+        </div>
+        <div class="p-3 rounded-2xl bg-white border border-stone-200/90 shadow-card flex items-center gap-3">
+          <span class="text-2xl">☁️</span>
+          <div>
+            <div class="text-xs font-black text-stone-900">Google Cloud Sync</div>
+            <div class="text-[11px] text-stone-500">Access phone & laptop</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- INTERACTIVE APP PREVIEW CARD                                          -->
+    <!-- ===================================================================== -->
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 sm:mt-16">
+      <div class="p-3 sm:p-5 rounded-3xl bg-gradient-to-b from-stone-900 to-stone-950 shadow-2xl border border-stone-800 relative group">
+        <!-- Mock Browser Chrome Header -->
+        <div class="flex items-center justify-between pb-3 px-2 border-b border-stone-800 text-xs text-stone-400">
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full bg-rose-500"></div>
+            <div class="w-3 h-3 rounded-full bg-amber-500"></div>
+            <div class="w-3 h-3 rounded-full bg-emerald-500"></div>
+            <span class="ml-2 font-mono text-[11px] text-stone-500">cookai.app</span>
+          </div>
+          <span class="text-[11px] font-bold text-amber-400">Interactive Kitchen Dashboard Preview</span>
+        </div>
+
+        <!-- Inside Dashboard Content Mockup -->
+        <div class="bg-[#FAF8F5] rounded-2xl p-4 sm:p-6 mt-3 space-y-4">
+          <!-- Top Row: Bento Widgets Preview -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="p-3.5 rounded-xl bg-white border border-stone-200 shadow-sm">
+              <span class="text-[10px] font-black uppercase text-orange-700 tracking-wider">🌱 Zero-Waste Savings</span>
+              <div class="text-xl font-black text-stone-900 mt-1">~$42.00 saved</div>
+              <p class="text-[11px] text-stone-500">12 pantry items rescued from spoiling</p>
+            </div>
+            <div class="p-3.5 rounded-xl bg-white border border-stone-200 shadow-sm">
+              <span class="text-[10px] font-black uppercase text-stone-600 tracking-wider">🥬 Pantry Stock Health</span>
+              <div class="text-xl font-black text-stone-900 mt-1">14 Fresh Items</div>
+              <p class="text-[11px] text-amber-600 font-bold">⚠️ 2 items expiring in 3 days</p>
+            </div>
+            <div class="p-3.5 rounded-xl bg-white border border-stone-200 shadow-sm">
+              <span class="text-[10px] font-black uppercase text-amber-700 tracking-wider">⚡ AI Recipe Matching</span>
+              <div class="text-xl font-black text-stone-900 mt-1">3 Recipes Ready</div>
+              <p class="text-[11px] text-stone-500">100% ingredients in pantry</p>
+            </div>
+          </div>
+
+          <!-- Sample Recipe Match Card Preview -->
+          <div class="p-4 rounded-2xl bg-white border border-stone-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+              <div class="w-16 h-16 rounded-xl bg-gradient-to-tr from-orange-500 to-amber-500 flex items-center justify-center text-3xl shadow-sm flex-shrink-0">
+                🥘
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-orange-100 text-orange-900">100% Match</span>
+                  <span class="text-xs text-stone-400">⏱ 25 mins</span>
+                </div>
+                <h4 class="text-sm font-black text-stone-900 mt-0.5">Butter Chicken with Fragrant Rice</h4>
+                <p class="text-xs text-stone-500 mt-0.5">Uses: Chicken, Yogurt, Tomato, Garlic, Rice, Spices</p>
+              </div>
+            </div>
+            <a
+              href="/app"
+              class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-stone-900 text-white font-extrabold text-xs text-center shadow-sm hover:bg-stone-800 transition whitespace-nowrap"
+            >
+              Open Full App →
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================= -->
+  <!-- THE COOK AI DIFFERENCE: FAMILIAR FIRST, VARIETY ON-DEMAND               -->
+  <!-- ======================================================================= -->
+  <section id="difference" class="py-20 bg-stone-100/60 border-t border-stone-200/80">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+      <div class="text-center max-w-2xl mx-auto space-y-3">
+        <span class="text-2xl font-black uppercase tracking-widest text-orange-600">Why Cook AI is Different</span>
+        <h2 class="text-5xl sm:text-5xl font-black text-stone-900 tracking-tight">
+          Not another recipe dump. <br />
+          Customised helper for your kitchen
+        </h2>
+        <p class="text-sm text-stone-600 font-medium leading-relaxed">
+          The reason most cooking apps fail is that they don't know what you actually eat. Cook AI is built to help you plan and cook your familiar meals first.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+        <!-- Card 1: Typical Generic Apps -->
+        <div class="p-8 rounded-3xl bg-white border border-stone-200 shadow-sm space-y-5">
+          <div class="flex items-center gap-2.5 text-stone-400">
+            <span class="text-xl">❌</span>
+            <h3 class="text-base font-black text-stone-700">Generic Recipe Apps</h3>
+          </div>
+          <ul class="space-y-3.5 text-xs text-stone-500 font-medium">
+            <li class="flex items-start gap-2.5">
+              <span class="text-red-400 font-bold mt-0.5">•</span>
+              <span><strong>Forces random gourmet meals:</strong> Gives you 45-ingredient recipes you'll never realistically make on a busy weeknight.</span>
+            </li>
+            <li class="flex items-start gap-2.5">
+              <span class="text-red-400 font-bold mt-0.5">•</span>
+              <span><strong>Demands expensive one-off groceries:</strong> Forces you to buy niche sauces and exotic spices that sit in your cabinet forever.</span>
+            </li>
+            <li class="flex items-start gap-2.5">
+              <span class="text-red-400 font-bold mt-0.5">•</span>
+              <span><strong>Ignores your household favorites:</strong> Has no idea what your family actually likes, causing meal fatigue and abandoned plans.</span>
+            </li>
+			<li class="flex items-start gap-2.5">
+              <span class="text-red-400 font-bold mt-0.5">•</span>
+              <span><strong>Demands money before value:</strong> Asks you to pay for full recipe</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Card 2: Cook AI Approach -->
+        <div class="p-8 rounded-3xl bg-gradient-to-b from-orange-50/80 to-amber-50/60 border-2 border-orange-500 shadow-card space-y-5 relative">
+          <div class="absolute -top-3.5 right-6 px-3 py-1 rounded-full text-[10px] font-black uppercase bg-orange-600 text-white shadow-sm">
+            The Cook AI Way
+          </div>
+          <div class="flex items-center gap-2.5 text-orange-600">
+            <span class="text-xl">✅</span>
+            <h3 class="text-base font-black text-stone-900">Cook AI (Your Personal Kitchen)</h3>
+          </div>
+          <ul class="space-y-3.5 text-xs text-stone-800 font-semibold">
+            <li class="flex items-start gap-2.5">
+              <span class="text-orange-600 font-bold mt-0.5">✓</span>
+              <span><strong>Prioritizes Your Everyday Home Dishes:</strong> First matches the familiar comfort meals your household already loves and cooks regularly.</span>
+            </li>
+            <li class="flex items-start gap-2.5">
+              <span class="text-orange-600 font-bold mt-0.5">✓</span>
+              <span><strong>Tells You What's 100% Ready Tonight:</strong> Instant match with whatever is sitting in your fridge right now, with zero missing ingredients.</span>
+            </li>
+            <li class="flex items-start gap-2.5">
+              <span class="text-orange-600 font-bold mt-0.5">✓</span>
+              <span><strong>Creative New Ideas to Explore:</strong> Learns from you and offers 2 curated twists matching your cuisine style for you to explore.</span>
+            </li>
+            <li class="flex items-start gap-2.5">
+              <span class="text-orange-600 font-bold mt-0.5">✓</span>
+              <span><strong>Rescues Expiring Food First:</strong> Automatically prioritizes meals that save ingredients nearing their shelf life.</span>
+            </li>
+			<li class="flex items-start gap-2.5">
+              <span class="text-orange-600 font-bold mt-0.5">✓</span>
+              <span><strong>Lets you alterate recipe:</strong> Provides options to customise the taste and quantity</span>
+            </li>
+			<li class="flex items-start gap-2.5">
+              <span class="text-orange-600 font-bold mt-0.5">✓</span>
+              <span><strong>Recipe options:</strong> Read our recipe or watch a video! Your choice </span>
+            </li>
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <!-- ======================================================================= -->
+  <!-- UNIQUE ZERO-WASTE FEATURES                                              -->
+  <!-- ======================================================================= -->
+  <section id="features" class="py-20 bg-[#FAF8F5]">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-14">
+      <div class="text-center max-w-2xl mx-auto space-y-3">
+        <span class="text-xs font-black uppercase tracking-widest text-orange-600">Engineered for Food Lovers</span>
+        <h2 class="text-3xl sm:text-4xl font-black text-stone-900 tracking-tight">Everything you need to master your kitchen</h2>
+        <p class="text-sm text-stone-600 font-medium">Built with smart culinary intelligence so you never have to ask "What's for dinner?" again.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Feature 1 -->
+        <div class="p-6 rounded-3xl bg-white border border-stone-200 shadow-card space-y-3">
+          <div class="text-3xl">🥦</div>
+          <h3 class="text-sm font-black text-stone-900">Smart Shelf-Life Countdown</h3>
+          <p class="text-xs text-stone-500 leading-relaxed font-medium">
+            Predictive food shelf life with easy editing. Star items to prioritize using them up today, reducing spoiled food to near zero.
+          </p>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="p-6 rounded-3xl bg-white border border-stone-200 shadow-card space-y-3">
+          <div class="text-3xl">🧠</div>
+          <h3 class="text-sm font-black text-stone-900">Zero Duplicates & Smart Synonyms</h3>
+          <p class="text-xs text-stone-500 leading-relaxed font-medium">
+            Understands that <em>coriander</em> is <em>cilantro</em>, <em>capsicum</em> is <em>bell pepper</em>, and <em>maida</em> is <em>all-purpose flour</em>. Never creates confusing duplicates.
+          </p>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="p-6 rounded-3xl bg-white border border-stone-200 shadow-card space-y-3">
+          <div class="text-3xl">🛡️</div>
+          <h3 class="text-sm font-black text-stone-900">Strict Dietary & Allergy Guardrails</h3>
+          <p class="text-xs text-stone-500 leading-relaxed font-medium">
+            Set Vegetarian, Vegan, Non-Veg, or restricted ingredients. Strict token matching ensures prohibited foods never slip into suggestions.
+          </p>
+        </div>
+
+        <!-- Feature 4 -->
+        <div class="p-6 rounded-3xl bg-white border border-stone-200 shadow-card space-y-3">
+          <div class="text-3xl">👥</div>
+          <h3 class="text-sm font-black text-stone-900">Dynamic Serving Scaler</h3>
+          <p class="text-xs text-stone-500 leading-relaxed font-medium">
+            Cooking for 1 person or feeding a dinner party of 8? Ingredients scale up and down proportionally with a single click.
+          </p>
+        </div>
+
+        <!-- Feature 5 -->
+        <div class="p-6 rounded-3xl bg-white border border-stone-200 shadow-card space-y-3">
+          <div class="text-3xl">💬</div>
+          <h3 class="text-sm font-black text-stone-900">1-Tap WhatsApp Grocery List</h3>
+          <p class="text-xs text-stone-500 leading-relaxed font-medium">
+            Only missing 1 ingredient? Add it to your shopping cart and copy a cleanly formatted checklist ready to paste into WhatsApp or SMS.
+          </p>
+        </div>
+
+        <!-- Feature 6 -->
+        <div class="p-6 rounded-3xl bg-white border border-stone-200 shadow-card space-y-3">
+          <div class="text-3xl">🎥</div>
+          <h3 class="text-sm font-black text-stone-900">Instant YouTube & Web Recipes</h3>
+          <p class="text-xs text-stone-500 leading-relaxed font-medium">
+            Every suggested dish includes direct 1-tap links to top-rated YouTube cooking tutorials and Google recipe instructions.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================= -->
+  <!-- HOW IT WORKS (3 SIMPLE STEPS)                                           -->
+  <!-- ======================================================================= -->
+  <section id="how-it-works" class="py-20 bg-white border-y border-stone-200/80">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-14">
+      <div class="text-center max-w-2xl mx-auto space-y-3">
+        <span class="text-xs font-black uppercase tracking-widest text-orange-600">Simple 3-Step Routine</span>
+        <h2 class="text-3xl sm:text-4xl font-black text-stone-900 tracking-tight">Familiar meals first. Fresh ideas when you want them.</h2>
+        <p class="text-sm text-stone-600 font-medium">How Cook AI helps you plan familiar meals without the daily dinner headache.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <!-- Step 1 -->
+        <div class="p-7 rounded-3xl bg-stone-50 border border-stone-200/90 shadow-card space-y-4 hover:shadow-card-hover transition">
+          <div class="w-12 h-12 rounded-2xl bg-orange-500/10 border border-orange-500/20 text-orange-600 font-black text-lg flex items-center justify-center">
+            1
+          </div>
+          <h3 class="text-lg font-black text-stone-900">Save Your Everyday Dishes</h3>
+          <p class="text-xs text-stone-600 leading-relaxed font-medium">
+            Add the go-to meals your family loves. Cook AI automatically drafts the ingredient checklist for each dish so your personal recipe book is set up in seconds.
+          </p>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="p-7 rounded-3xl bg-stone-50 border border-stone-200/90 shadow-card space-y-4 hover:shadow-card-hover transition">
+          <div class="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 font-black text-lg flex items-center justify-center">
+            2
+          </div>
+          <h3 class="text-lg font-black text-stone-900">Cook Familiar Meals Tonight</h3>
+          <p class="text-xs text-stone-600 leading-relaxed font-medium">
+            Tap <strong>Suggest Meals</strong>. Cook AI checks your pantry against your own recipes first, showing you all 100% cookable dishes with zero grocery runs.
+          </p>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="p-7 rounded-3xl bg-stone-50 border border-stone-200/90 shadow-card space-y-4 hover:shadow-card-hover transition">
+          <div class="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 font-black text-lg flex items-center justify-center">
+            3
+          </div>
+          <h3 class="text-lg font-black text-stone-900">Creative New Ideas to Explore</h3>
+          <p class="text-xs text-stone-600 leading-relaxed font-medium">
+            Craving variety? Cook AI offers 2 smart culinary twists matching your cuisine style, plus 1 dish you can cook by grabbing just 1 missing ingredient.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  
+
+  <!-- ======================================================================= -->
+  <!-- SAVINGS CALCULATOR / VALUE PROPOSITION                                  -->
+  <!-- ======================================================================= -->
+  <section id="savings" class="py-20 bg-gradient-to-br from-stone-950 via-[#231713] to-[#361910] text-white">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-8">
+      <span class="text-xs font-black uppercase tracking-widest text-amber-400">Real Economic Impact</span>
+      <h2 class="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
+        The average household tosses <br class="hidden sm:inline" />
+        <span class="text-amber-400">$1,200 of good groceries</span> every year.
+      </h2>
+      <p class="max-w-2xl mx-auto text-sm sm:text-base text-stone-300 font-medium leading-relaxed">
+        By matching what you already bought and giving you clear expiration countdowns, Cook AI rescues ~4 to 7 items every week. That's an extra <strong>$100 back in your wallet every month</strong>.
+      </p>
+
+      <div class="pt-4 flex justify-center">
+        <a
+          href="/app"
+          class="px-8 py-4 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-amber-400 text-stone-950 font-black text-sm tracking-wide shadow-warm-glow hover:scale-105 transition active:scale-95"
+        >
+          Start Saving Today (Free) →
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================= -->
+  <!-- PRICING / FREE VS PRO ROADMAP                                          -->
+  <!-- ======================================================================= -->
+  <section id="pricing" class="py-20 bg-white border-b border-stone-200">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-14">
+      <div class="text-center max-w-2xl mx-auto space-y-3">
+        <span class="text-3xl font-black uppercase tracking-widest text-orange-600">Transparent & Free</span>
+        <p class="text-2xl text-stone-600 font-medium">Use all core zero-waste features 100% free with your Google account.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        <!-- Free Plan -->
+        <div class="p-8 rounded-3xl bg-stone-50 border-2 border-orange-500 shadow-card-hover space-y-6 relative flex flex-col justify-between">
+          <div class="absolute -top-3.5 right-6 px-3 py-1 rounded-full text-[10px] font-black uppercase bg-orange-600 text-white shadow-sm">
+            Current Deployment
+          </div>
+          <div class="space-y-4">
+            <div>
+              <h3 class="text-xl font-black text-stone-900">Freemium</h3>
+              <p class="text-xs text-stone-500 mt-1">Full access to zero-waste meal matching</p>
+            </div>
+            <div class="text-3xl font-black text-stone-900">$0 <span class="text-xs font-semibold text-stone-400">/ month</span></div>
+
+            <ul class="space-y-2.5 text-xs text-stone-700 font-semibold pt-2">
+              <li class="flex items-center gap-2"><span class="text-orange-600 font-bold">✓</span> 10 AI Recipe Matches per day</li>
+              <li class="flex items-center gap-2"><span class="text-orange-600 font-bold">✓</span> Unlimited Pantry & Expiry Tracking</li>
+              <li class="flex items-center gap-2"><span class="text-orange-600 font-bold">✓</span> Zero-Waste Dollar Savings Tracker</li>
+              <li class="flex items-center gap-2"><span class="text-orange-600 font-bold">✓</span> WhatsApp & SMS Shopping List</li>
+              <li class="flex items-center gap-2"><span class="text-orange-600 font-bold">✓</span> Google Account Cloud Sync</li>
+            </ul>
+          </div>
+
+          <a
+            href="/app"
+            class="w-full py-3.5 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs text-center shadow-sm block active:scale-95 transition"
+          >
+            Launch Free App Now →
+          </a>
+        </div>
+
+        <!-- Pro Plan Roadmap -->
+        <div class="p-8 rounded-3xl bg-stone-50 border border-stone-200/90 shadow-card space-y-6 flex flex-col justify-between">
+          <div class="space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-xl font-black text-stone-900">Premium</h3>
+                <p class="text-xs text-stone-500 mt-1">More intelligence. More convenience. More control</p>
+              </div>
+              <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-stone-200 text-stone-700">Coming Soon</span>
+            </div>
+            <div class="text-3xl font-black text-stone-900">TBD </div>
+
+            <ul class="space-y-2.5 text-xs text-stone-500 font-semibold pt-2">
+              <li class="flex items-center gap-2"><span class="text-stone-400 font-bold">★</span> <strong>Smart Camera & Receipt Scanning</strong> Snap fridge or grocery receipt to auto-stock</li>
+              <li class="flex items-center gap-2"><span class="text-stone-400 font-bold">★</span> Unlimited daily recipe generations</li>
+              <li class="flex items-center gap-2"><span class="text-stone-400 font-bold">★</span> Weekly AI meal planning calendar</li>
+			  <li class="flex items-center gap-2"><span class="text-stone-400 font-bold">★</span> Nutrition & Calorie Planning</li>
+              <li class="flex items-center gap-2"><span class="text-stone-400 font-bold">★</span> PPriority AI Processing</li>
+            </ul>
+          </div>
+
+          <div class="w-full py-3.5 rounded-2xl bg-stone-200 text-stone-500 font-bold text-xs text-center cursor-not-allowed">
+            Roadmap (Phase 2)
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================= -->
+  <!-- FEEDBACK SECTION: DIRECT TO DEVELOPER                                   -->
+  <!-- ======================================================================= -->
+  <section id="feedback" class="py-20 bg-white border-t border-stone-200">
+    <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+      <div class="text-center space-y-3">
+        <span class="text-xs font-black uppercase tracking-widest text-orange-600">We Read Every Note</span>
+        <h2 class="text-3xl sm:text-4xl font-black text-stone-900 tracking-tight">
+          Help Shape Cook AI
+        </h2>
+        <p class="text-sm text-stone-600 font-medium">
+          Have an idea, spotted a bug, or want a new feature? Your feedback goes directly to the developer to make everyday cooking even easier.
+        </p>
+      </div>
+
+      <div id="feedback-form-container" class="p-6 sm:p-8 rounded-3xl bg-stone-50 border border-stone-200/90 shadow-card">
+        <form id="landing-feedback-form" class="space-y-4">
+          <!-- Feedback Type Pills -->
+          <div>
+            <label class="text-xs font-bold text-stone-700 block mb-2">Category</label>
+            <div class="grid grid-cols-3 gap-2">
+              <label class="flex items-center justify-center gap-1.5 p-2.5 rounded-xl border border-stone-200 bg-white cursor-pointer text-xs font-bold text-stone-700 hover:border-orange-500 transition has-[:checked]:border-orange-600 has-[:checked]:bg-orange-50 has-[:checked]:text-orange-950">
+                <input type="radio" name="feedback_type" value="idea" class="hidden" checked>
+                <span>💡 Feature Idea</span>
+              </label>
+              <label class="flex items-center justify-center gap-1.5 p-2.5 rounded-xl border border-stone-200 bg-white cursor-pointer text-xs font-bold text-stone-700 hover:border-orange-500 transition has-[:checked]:border-orange-600 has-[:checked]:bg-orange-50 has-[:checked]:text-orange-950">
+                <input type="radio" name="feedback_type" value="bug" class="hidden">
+                <span>🐛 Bug Report</span>
+              </label>
+              <label class="flex items-center justify-center gap-1.5 p-2.5 rounded-xl border border-stone-200 bg-white cursor-pointer text-xs font-bold text-stone-700 hover:border-orange-500 transition has-[:checked]:border-orange-600 has-[:checked]:bg-orange-50 has-[:checked]:text-orange-950">
+                <input type="radio" name="feedback_type" value="praise" class="hidden">
+                <span>⭐ General Note</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Email Input -->
+          <div>
+            <label class="text-xs font-bold text-stone-700 block mb-1">Your Email (Optional, if you'd like a response)</label>
+            <input
+              type="email"
+              id="feedback-email"
+              placeholder="e.g. yourname@gmail.com"
+              class="w-full text-xs font-semibold bg-white border border-stone-200 rounded-xl px-3.5 py-2.5 text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-orange-500 shadow-sm"
+            >
+          </div>
+
+          <!-- Message Textarea -->
+          <div>
+            <label class="text-xs font-bold text-stone-700 block mb-1">Your Feedback or Request</label>
+            <textarea
+              id="feedback-message"
+              rows="4"
+              required
+              placeholder="What would make Cook AI even better for your family kitchen?"
+              class="w-full text-xs font-semibold bg-white border border-stone-200 rounded-xl px-3.5 py-2.5 text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-orange-500 shadow-sm resize-none"
+            ></textarea>
+          </div>
+
+          <!-- Rating -->
+          <div>
+            <label class="text-xs font-bold text-stone-700 block mb-1">Overall Impression</label>
+            <div class="flex items-center gap-2">
+              <select
+                id="feedback-rating"
+                class="text-xs font-semibold bg-white border border-stone-200 rounded-xl px-3 py-2 text-stone-800 focus:outline-none focus:ring-2 focus:ring-orange-500"
+              >
+                <option value="5">⭐⭐⭐⭐⭐ Excellent (5/5)</option>
+                <option value="4">⭐⭐⭐⭐ Good (4/5)</option>
+                <option value="3">⭐⭐⭐ Neutral (3/5)</option>
+                <option value="2">⭐⭐ Needs Improvement (2/5)</option>
+                <option value="1">⭐ Poor (1/5)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Submit Button -->
+          <button
+            type="submit"
+            id="feedback-submit-btn"
+            class="w-full py-3.5 rounded-2xl bg-stone-900 hover:bg-stone-800 text-white font-extrabold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-2"
+          >
+            <span>📨</span>
+            <span>Send Feedback Directly to Developer</span>
+          </button>
+        </form>
+
+        <div id="feedback-success" class="hidden text-center py-8 space-y-3">
+          <div class="w-12 h-12 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-2xl mx-auto">
+            ✓
+          </div>
+          <h4 class="text-base font-black text-stone-900">Thank you for your feedback!</h4>
+          <p class="text-xs text-stone-600 max-w-sm mx-auto">
+            Your note has been saved and delivered directly to the developer. We truly appreciate you helping make Cook AI better!
+          </p>
+          <button
+            type="button"
+            onclick="document.getElementById('feedback-success').classList.add('hidden'); document.getElementById('landing-feedback-form').reset(); document.getElementById('landing-feedback-form').classList.remove('hidden');"
+            class="text-xs font-bold text-orange-600 underline pt-2"
+          >
+            Send another note
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================= -->
+  <!-- FINAL CALL TO ACTION                                                    -->
+  <!-- ======================================================================= -->
+  <section class="py-20 bg-[#FAF8F5]">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
+      <h2 class="text-3xl sm:text-5xl font-black text-stone-900 tracking-tight">
+        Ready to see what you can cook today?
+      </h2>
+      <p class="text-sm sm:text-base text-stone-600 font-medium max-w-xl mx-auto">
+        Join the smart zero-waste kitchen movement. It takes less than 60 seconds to add your ingredients.
+      </p>
+      <div class="pt-2">
+        <a
+          href="/app"
+          class="inline-flex items-center gap-2 px-9 py-4 rounded-2xl bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500 hover:from-orange-700 hover:to-amber-600 text-white font-black text-sm tracking-wide shadow-warm-glow hover:shadow-card-hover transition active:scale-95"
+        >
+          <span>Open Cook AI Webapp</span>
+          <span>→</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-t border-stone-200 py-10 bg-white text-xs text-stone-500">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-2">
+        <span class="font-extrabold text-stone-800">Cook AI</span>
+        <span>·</span>
+        <span>Smart Zero-Waste Meal Assistant</span>
+      </div>
+      <div class="flex items-center gap-6 font-semibold">
+        <a href="/app" class="hover:text-orange-600 transition">Launch App</a>
+        <a href="#how-it-works" class="hover:text-orange-600 transition">How It Works</a>
+        <a href="#features" class="hover:text-orange-600 transition">Features</a>
+        <a href="#pricing" class="hover:text-orange-600 transition">Roadmap</a>
+        <a href="#feedback" class="hover:text-orange-600 transition">Feedback</a>
+      </div>
+      <div>
+        <span>© 2026 Cook AI. All rights reserved.</span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('landing-feedback-form')?.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const btn = document.getElementById('feedback-submit-btn');
+      const email = document.getElementById('feedback-email').value;
+      const message = document.getElementById('feedback-message').value;
+      const rating = parseInt(document.getElementById('feedback-rating').value, 10);
+      const type = document.querySelector('input[name="feedback_type"]:checked')?.value || 'feedback';
+
+      btn.disabled = true;
+      btn.innerText = 'Sending feedback…';
+
+      try {
+        const res = await fetch('/api/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, message, rating, type })
+        });
+        const json = await res.json();
+        if (json.status === 'ok') {
+          document.getElementById('landing-feedback-form').classList.add('hidden');
+          document.getElementById('feedback-success').classList.remove('hidden');
+        } else {
+          alert('Could not submit feedback right now. Please try again.');
+        }
+      } catch (err) {
+        alert('Network error. Please try again.');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Send Feedback Directly to Developer';
+      }
+    });
+  </script>
+</body>
+</html>

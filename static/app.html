@@ -1,0 +1,2757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cook AI - Smart Zero-Waste Kitchen & Meal Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
+          colors: {
+            orange: {
+              50: '#fff7ed', 100: '#ffedd5', 200: '#fed7aa', 300: '#fdba74',
+              400: '#fb923c', 500: '#f97316', 600: '#ea580c', 700: '#c2410c',
+              800: '#9a3412', 900: '#7c2d12'
+            },
+            amber: {
+              50: '#fffbeb', 100: '#fef3c7', 200: '#fde68a', 400: '#fbbf24',
+              500: '#f59e0b', 600: '#d97706', 700: '#b45309'
+            },
+            stone: {
+              50: '#fafaf9', 100: '#f5f5f4', 200: '#e7e5e4', 800: '#292524', 900: '#1c1917', 950: '#0c0a09'
+            }
+          },
+          boxShadow: {
+            'card': '0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03)',
+            'card-hover': '0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04)',
+            'warm-glow': '0 0 25px -4px rgba(234, 88, 12, 0.35)',
+            'gold-glow': '0 0 20px -3px rgba(245, 158, 11, 0.35)',
+          }
+        }
+      }
+    }
+  </script>
+  <!-- React & Babel for zero-build execution -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Google Sign-In SDK (GIS) -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="bg-[#FAF8F5] text-stone-900 antialiased min-h-screen pb-28 md:pb-16 selection:bg-orange-100 selection:text-orange-900">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    const DIET_OPTIONS = [
+      { id: 'both', label: '🍽️ Both', icon: '🍽️', desc: 'Any cuisine' },
+      { id: 'veg', label: '🥦 Vegetarian', icon: '🥦', desc: 'No meat, fish or egg' },
+      { id: 'vegan', label: '🥑 100% Vegan', icon: '🥑', desc: 'No dairy, eggs or honey' },
+      { id: 'non_veg', label: '🍗 Non-veg', icon: '🍗', desc: 'Includes meat or seafood' },
+    ];
+
+    const MEAL_OPTIONS = ['Any', 'Breakfast', 'Lunch', 'Dinner', 'Snacks'];
+    const SPICE_OPTIONS = [
+      { id: 'Mild', label: 'Mild 🌿' },
+      { id: 'Medium', label: 'Medium 🌶️' },
+      { id: 'Spicy', label: 'Spicy 🔥' }
+    ];
+
+    const COMMON_ESSENTIALS = [
+      'salt', 'black pepper', 'cooking oil', 'water', 'sugar', 'cumin',
+      'turmeric', 'chilli powder', 'paprika', 'oregano', 'garlic powder', 'soy sauce', 'vinegar'
+    ];
+
+    function App() {
+      const [tab, setTab] = useState('cook'); // 'cook', 'kitchen', 'shopping', 'history'
+      const [kitchenTab, setKitchenTab] = useState('pantry'); // 'pantry', 'essentials', 'dishes', 'restricted'
+      const [pantryFilter, setPantryFilter] = useState('all');
+      const [loading, setLoading] = useState(true);
+      const [suggesting, setSuggesting] = useState(false);
+      const [user, setUser] = useState(null);
+      const [config, setConfig] = useState(null);
+      const [data, setData] = useState({
+        pantry: [], essential: [], prohibited: [], dishes: [], shopping: [],
+        diet: 'both', usage_today: 0, stats: { rescued_count: 0, money_saved: 0 },
+        expiring_soon: [], remaining_today: 10
+      });
+
+      // Recipe generator states
+      const [diet, setDiet] = useState('both');
+      const [meal, setMeal] = useState('Any');
+      const [prompt, setPrompt] = useState('');
+      const [servings, setServings] = useState(2);
+      const [spiceLevel, setSpiceLevel] = useState('Medium');
+      const [kidFriendly, setKidFriendly] = useState(false);
+      const [results, setResults] = useState(null);
+
+      // Modals
+      const [activeRecipe, setActiveRecipe] = useState(null);
+      const [cookedModal, setCookedModal] = useState(null);
+      const [editPantryItem, setEditPantryItem] = useState(null);
+      const [editDishItem, setEditDishItem] = useState(null);
+      const [authModalOpen, setAuthModalOpen] = useState(false);
+      const [feedbackOpen, setFeedbackOpen] = useState(false);
+      const [toast, setToast] = useState(null);
+
+      const showToast = (msg, icon = '✓') => {
+        setToast({ msg, icon });
+        setTimeout(() => setToast(null), 3500);
+      };
+
+      // Auth guard helper: returns true if logged in, otherwise opens AuthModal
+      const requireAuth = (actionDescription = 'make changes') => {
+        if (!user || !user.is_logged_in) {
+          setAuthModalOpen(true);
+          showToast(`Sign in with Google is required to ${actionDescription}.`, '🔒');
+          return false;
+        }
+        return true;
+      };
+
+      const fetchKitchen = async () => {
+        try {
+          const res = await fetch('/api/kitchen');
+          const json = await res.json();
+          setData(json);
+          setDiet(json.diet || 'both');
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      useEffect(() => {
+        fetchKitchen();
+        fetch('/api/config')
+          .then(r => r.json())
+          .then(cfg => setConfig(cfg))
+          .catch(() => {});
+        fetch('/api/user')
+          .then(r => r.json())
+          .then(u => setUser(u))
+          .catch(() => {});
+      }, []);
+
+      window.handleGoogleCredentialResponse = async (response) => {
+        try {
+          const res = await fetch('/api/auth/google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ credential: response.credential })
+          });
+          const json = await res.json();
+          if (json.status === 'ok') {
+            setUser({ ...json, is_logged_in: true });
+            setAuthModalOpen(false);
+            fetchKitchen();
+            showToast(`Signed in as ${json.name}! Kitchen synced with Gmail ☁️`);
+          } else {
+            showToast('Could not sign in with Google.', '❌');
+          }
+        } catch (e) {
+          showToast('Google login error.', '❌');
+        }
+      };
+
+      const handleLogout = async () => {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        setUser({ is_logged_in: false, name: 'Guest Cook' });
+        showToast('Signed out from Google');
+        fetchKitchen();
+      };
+
+      const handleDevLogin = async (emailToUse) => {
+        try {
+          const res = await fetch('/api/auth/dev', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: emailToUse || 'shama@gmail.com' })
+          });
+          const json = await res.json();
+          if (json.status === 'ok') {
+            setUser({ ...json, is_logged_in: true });
+            setAuthModalOpen(false);
+            fetchKitchen();
+            showToast(`Signed in as ${json.name}! Kitchen synced ☁️`);
+          } else {
+            showToast('Could not sign in.', '❌');
+          }
+        } catch (e) {
+          showToast('Sign-in error.', '❌');
+        }
+      };
+
+      useEffect(() => {
+        if (config && config.google_client_id && (!user || !user.is_logged_in)) {
+          const timer = setInterval(() => {
+            if (window.google && window.google.accounts && window.google.accounts.id) {
+              clearInterval(timer);
+              window.google.accounts.id.initialize({
+                client_id: config.google_client_id,
+                callback: window.handleGoogleCredentialResponse,
+                auto_select: false,
+              });
+              const btn = document.getElementById('google-signin-btn');
+              if (btn) {
+                window.google.accounts.id.renderButton(btn, {
+                  theme: 'outline',
+                  size: 'medium',
+                  shape: 'pill',
+                  text: 'signin_with',
+                });
+              }
+            }
+          }, 300);
+          return () => clearInterval(timer);
+        }
+      }, [config, user]);
+
+      const handleDietChange = async (newDiet) => {
+        if (!requireAuth('change dietary preference')) return;
+        setDiet(newDiet);
+        await fetch('/api/diet', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ diet: newDiet })
+        });
+        showToast(`Diet set to ${newDiet}`);
+      };
+
+      const handleSuggest = async () => {
+        if (!data.pantry.length) {
+          showToast('Add ingredients to your pantry first!', '⚠️');
+          setTab('kitchen');
+          return;
+        }
+        setSuggesting(true);
+        try {
+          const res = await fetch('/api/suggest', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              meal, prompt, servings, spice_level: spiceLevel, kid_friendly: kidFriendly
+            })
+          });
+          const json = await res.json();
+          setResults(json);
+          fetchKitchen();
+        } catch (e) {
+          showToast('Could not fetch suggestions right now.', '❌');
+        } finally {
+          setSuggesting(false);
+        }
+      };
+
+      const handleRecordCooked = async (dishName, source, usedIds) => {
+        if (!requireAuth('save cooked meal to history')) return;
+        try {
+          const res = await fetch('/api/history/cooked', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dish_name: dishName, source, used_item_ids: usedIds })
+          });
+          const json = await res.json();
+          setCookedModal(null);
+          setActiveRecipe(null);
+          showToast(json.rescued_count > 0 ? `Cooked! Rescued ${json.rescued_count} item(s) 🌱` : 'Meal saved to history! 🍽️');
+          fetchKitchen();
+        } catch (e) {
+          showToast('Failed to save to history.', '❌');
+        }
+      };
+
+      if (loading) {
+        return (
+          <div className="flex h-screen items-center justify-center bg-[#FAF8F5]">
+            <div className="text-center space-y-3">
+              <div className="w-14 h-14 rounded-2xl bg-orange-500/10 border border-orange-500/20 text-orange-600 flex items-center justify-center text-3xl mx-auto animate-bounce">
+                🍳
+              </div>
+              <p className="text-sm font-bold text-stone-800">Loading your smart kitchen…</p>
+              <p className="text-xs text-stone-400">Zero-waste AI meal assistant</p>
+            </div>
+          </div>
+        );
+      }
+
+      const expiringCount = data.expiring_soon ? data.expiring_soon.length : 0;
+      const unboughtShoppingCount = data.shopping.filter(i => !i.bought).length;
+
+      return (
+        <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-14 pt-5 pb-16">
+          {/* =============================================================== */}
+          {/* HEADER: Sleek Navbar with Warm Terracotta/Ember Cook AI Brand   */}
+          {/* =============================================================== */}
+          <header className="flex flex-col lg:flex-row lg:items-center justify-between pb-6 border-b border-stone-200/80 mb-6 gap-4">
+            {/* Left: Warm Cast-Iron & Terracotta Cook AI Brand Block */}
+            <div className="flex items-center gap-3.5 sm:gap-4 p-2.5 sm:p-3 pr-6 sm:pr-8 rounded-2xl bg-gradient-to-r from-stone-950 via-[#231713] to-[#361910] border border-orange-500/35 shadow-md">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-600 text-white flex items-center justify-center text-3xl sm:text-4xl shadow-warm-glow flex-shrink-0">
+                🍳
+              </div>
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">Cook AI</h1>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-400 text-stone-950 shadow-sm">
+                    Free
+                  </span>
+                </div>
+                <p className="text-[11px] sm:text-xs font-semibold text-orange-200/90 mt-0.5 hidden sm:block">
+                  Smart Zero-Waste Kitchen & AI Recipes
+                </p>
+              </div>
+            </div>
+
+            {/* Right: Actions, Cart & Google Sign-in */}
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Back to Home / Landing Page */}
+              <a
+                href="/"
+                className="px-3.5 py-2.5 rounded-2xl border border-stone-200 bg-white hover:bg-stone-50 transition shadow-card flex items-center gap-1.5 text-xs font-bold text-stone-700 active:scale-95"
+                title="View Cook AI overview and information"
+              >
+                <span>←</span>
+                <span>About</span>
+              </a>
+
+              {/* Feedback to Developer */}
+              <button
+                onClick={() => setFeedbackOpen(true)}
+                className="px-3.5 py-2.5 rounded-2xl border border-stone-200 bg-white hover:bg-stone-50 transition shadow-card flex items-center gap-1.5 text-xs font-bold text-stone-700 active:scale-95"
+                title="Send feedback directly to developer"
+              >
+                <span>💬</span>
+                <span>Feedback</span>
+              </button>
+
+              {/* Shopping Cart Button */}
+              <button
+                onClick={() => setTab('shopping')}
+                className="relative px-3.5 py-2.5 rounded-2xl border border-stone-200 bg-white hover:bg-stone-50 transition shadow-card flex items-center gap-2 text-xs font-bold text-stone-700 active:scale-95"
+              >
+                <span>🛒</span>
+                <span>Shopping</span>
+                {unboughtShoppingCount > 0 && (
+                  <span className="w-5 h-5 rounded-full bg-orange-600 text-white text-[10px] font-extrabold flex items-center justify-center">
+                    {unboughtShoppingCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Google Sign-In Status / Button */}
+              {user && user.is_logged_in ? (
+                <div className="flex items-center gap-2.5 pl-3 border-l border-stone-200 bg-white px-3.5 py-2 rounded-2xl border shadow-card">
+                  {user.picture ? (
+                    <img src={user.picture} alt={user.name} className="w-7 h-7 rounded-full border border-orange-400 object-cover" />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-orange-600 text-white font-extrabold text-xs flex items-center justify-center">
+                      {user.name ? user.name.charAt(0) : 'U'}
+                    </div>
+                  )}
+                  <div className="text-left">
+                    <span className="text-xs font-bold text-stone-800 block leading-tight">{user.name}</span>
+                    <span className="text-[10px] text-orange-600 font-semibold">Gmail Cloud Synced ☁️</span>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="text-stone-400 hover:text-red-500 text-[11px] font-bold ml-1.5 p-0.5"
+                    title="Sign out"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 pl-2 border-l border-stone-200">
+                  <div id="google-signin-btn"></div>
+                  <button
+                    onClick={() => setAuthModalOpen(true)}
+                    className="sm:hidden px-3 py-2 rounded-xl bg-stone-900 text-white text-xs font-bold"
+                  >
+                    Sign In
+                  </button>
+                </div>
+              )}
+            </div>
+          </header>
+
+          {/* =============================================================== */}
+          {/* MANDATORY GOOGLE SIGN-IN NOTICE BANNER (WHEN GUEST)            */}
+          {/* =============================================================== */}
+          {(!user || !user.is_logged_in) && (
+            <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-rose-500/10 border border-orange-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-orange-500 to-amber-500 text-white flex items-center justify-center text-lg flex-shrink-0 shadow-sm">
+                  🔒
+                </div>
+                <div>
+                  <h4 className="text-xs sm:text-sm font-extrabold text-stone-900">Sign in with Google required before modifying kitchen</h4>
+                  <p className="text-[11px] sm:text-xs text-stone-600 mt-0.5">Connect your Google account to customize ingredients, edit shelf-life, save home recipes, and sync across your devices.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setAuthModalOpen(true)}
+                className="px-4 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold transition shadow-sm self-start sm:self-auto active:scale-95 whitespace-nowrap flex items-center gap-1.5"
+              >
+                <span>Sign in with Google</span>
+                <span>→</span>
+              </button>
+            </div>
+          )}
+
+          {/* =============================================================== */}
+          {/* BENTO DASHBOARD WIDGETS (Stats, Freshness, & Pro Roadmap)      */}
+          {/* =============================================================== */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mb-6">
+            {/* Widget 1: Food Waste Rescued */}
+            <div className="p-4 rounded-2xl bg-white border border-stone-200/90 shadow-card flex flex-col justify-between relative overflow-hidden group hover:shadow-card-hover transition">
+              <div className="flex justify-between items-start">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-orange-700 flex items-center gap-1">
+                  <span>🌱</span> Zero-Waste Savings
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 font-bold border border-orange-200">
+                  Total Rescued
+                </span>
+              </div>
+              <div className="my-2.5">
+                <div className="text-2xl font-extrabold text-stone-900 tracking-tight">
+                  ~${data.stats.money_saved} <span className="text-xs font-semibold text-stone-400">saved</span>
+                </div>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  <strong>{data.stats.rescued_count}</strong> pantry items saved from spoiling.
+                </p>
+              </div>
+              <div className="w-full bg-stone-100 rounded-full h-1.5 overflow-hidden">
+                <div className="bg-orange-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${Math.min(100, Math.max(15, data.stats.rescued_count * 10))}%` }}></div>
+              </div>
+            </div>
+
+            {/* Widget 2: Pantry Freshness Health */}
+            <div className="p-4 rounded-2xl bg-white border border-stone-200/90 shadow-card flex flex-col justify-between relative overflow-hidden group hover:shadow-card-hover transition">
+              <div className="flex justify-between items-start">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-stone-600 flex items-center gap-1">
+                  <span>🥬</span> Pantry Stock Health
+                </span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${expiringCount > 0 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
+                  {expiringCount > 0 ? `${expiringCount} to use soon` : 'All fresh'}
+                </span>
+              </div>
+              <div className="my-2.5">
+                <div className="text-2xl font-extrabold text-stone-900 tracking-tight">
+                  {data.pantry.length} <span className="text-xs font-semibold text-stone-400">items in kitchen</span>
+                </div>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  {expiringCount > 0 ? `⚠️ ${expiringCount} items expiring within 4 days.` : 'Your ingredients are in great shape.'}
+                </p>
+              </div>
+              <div className="w-full bg-stone-100 rounded-full h-1.5 overflow-hidden flex">
+                <div className="bg-green-500 h-1.5 rounded-l-full" style={{ width: `${Math.max(10, 100 - (expiringCount * 20))}%` }}></div>
+                <div className="bg-amber-400 h-1.5 rounded-r-full" style={{ width: `${expiringCount * 20}%` }}></div>
+              </div>
+            </div>
+
+            {/* Widget 3: Pro Roadmap & Daily Usage */}
+            <div className="p-4 rounded-2xl bg-white border border-stone-200/90 shadow-card flex flex-col justify-between relative overflow-hidden group hover:shadow-card-hover transition">
+              <div className="flex justify-between items-center">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-700 flex items-center gap-1">
+                  <span>⚡</span> Daily AI Chef Usage
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 font-bold border border-amber-200">
+                  Free Tier (10/day)
+                </span>
+              </div>
+              <div className="my-2.5">
+                <div className="text-2xl font-extrabold text-stone-900 tracking-tight">
+                  {data.remaining_today !== undefined ? data.remaining_today : 10} <span className="text-xs font-semibold text-stone-400">recipes left today</span>
+                </div>
+                <p className="text-[11px] text-stone-500 mt-0.5">
+                  <span className="font-bold text-orange-600">Pro tier coming soon:</span> Unlimited recipes & AI camera bill/fridge scanner.
+                </p>
+              </div>
+              <div className="w-full bg-stone-100 rounded-full h-1.5 overflow-hidden">
+                <div className="bg-gradient-to-r from-orange-500 to-amber-500 h-1.5 rounded-full" style={{ width: `${Math.max(10, ((data.remaining_today || 10) / 10) * 100)}%` }}></div>
+              </div>
+            </div>
+          </div>
+
+          {/* =============================================================== */}
+          {/* NAVIGATION TABS (Segmented Control)                             */}
+          {/* =============================================================== */}
+          <div className="flex space-x-1.5 p-1 bg-stone-200/70 rounded-2xl mb-6 max-w-xl">
+            {[
+              { id: 'cook', icon: '🍳', label: 'Suggest Meals' },
+              { id: 'kitchen', icon: '🧺', label: `My Kitchen (${data.pantry.length})` },
+              { id: 'shopping', icon: '🛒', label: `Shopping (${data.shopping.length})` },
+              { id: 'history', icon: '🕘', label: 'Cook History' },
+            ].map(item => (
+              <button
+                key={item.id}
+                onClick={() => setTab(item.id)}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition active:scale-95 ${
+                  tab === item.id
+                    ? 'bg-white text-stone-900 shadow-sm'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <span>{item.icon}</span>
+                <span className="hidden sm:inline">{item.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Toast Notification */}
+          {toast && (
+            <div className="fixed top-5 right-5 z-50 flex items-center gap-2.5 px-4 py-3 bg-stone-900/95 backdrop-blur-md text-white text-xs font-bold rounded-2xl shadow-2xl animate-fade-in border border-stone-700">
+              <span className="w-5 h-5 rounded-full bg-orange-500/20 text-orange-400 flex items-center justify-center text-xs">{toast.icon}</span>
+              <span>{toast.msg}</span>
+            </div>
+          )}
+
+          {/* =============================================================== */}
+          {/* TAB 1: SUGGEST MEALS                                            */}
+          {/* =============================================================== */}
+          {tab === 'cook' && (
+            <div className="space-y-6">
+              {/* Recipe Prompt & Filter Form */}
+              <div className="p-5 sm:p-7 rounded-3xl bg-white border border-stone-200/90 shadow-card space-y-5">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🍲</span>
+                    <h2 className="text-base sm:text-lg font-black text-stone-900 tracking-tight">
+                      Plan Tonight's Meal: Familiar Home Recipes First
+                    </h2>
+                  </div>
+                  <p className="text-xs text-stone-500 mt-1 font-medium">
+                    Cook AI matches your pantry against your own family recipes first, and suggests creative new dishes for you to explore.
+                  </p>
+                </div>
+
+                {/* Dietary Preference Selector */}
+                <div>
+                  <label className="text-xs font-bold text-stone-700 block mb-2">Dietary Preference</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {DIET_OPTIONS.map(d => (
+                      <button
+                        key={d.id}
+                        type="button"
+                        onClick={() => handleDietChange(d.id)}
+                        className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between ${
+                          diet === d.id
+                            ? 'border-orange-600 bg-orange-50/70 shadow-sm'
+                            : 'border-stone-200 bg-stone-50/50 hover:bg-stone-50 text-stone-600'
+                        }`}
+                      >
+                        <span className="text-sm font-extrabold text-stone-900">{d.label}</span>
+                        <span className="text-[10px] text-stone-500 mt-0.5">{d.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Meal & Spice & Servings Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1">
+                  <div>
+                    <label className="text-xs font-bold text-stone-700 block mb-1.5">Meal Time</label>
+                    <select
+                      value={meal}
+                      onChange={e => setMeal(e.target.value)}
+                      className="w-full text-xs font-semibold bg-stone-50 border border-stone-200 rounded-xl p-2.5 text-stone-800 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    >
+                      {MEAL_OPTIONS.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-stone-700 block mb-1.5">Spice Level</label>
+                    <div className="flex rounded-xl border border-stone-200 p-0.5 bg-stone-50">
+                      {SPICE_OPTIONS.map(s => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => setSpiceLevel(s.id)}
+                          className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition ${
+                            spiceLevel === s.id ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500'
+                          }`}
+                        >
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-stone-700 block mb-1.5">Servings ({servings} people)</label>
+                    <div className="flex items-center gap-2 bg-stone-50 border border-stone-200 rounded-xl p-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setServings(Math.max(1, servings - 1))}
+                        className="w-7 h-7 rounded-lg bg-white border border-stone-200 font-extrabold text-xs text-stone-700 flex items-center justify-center hover:bg-stone-100"
+                      >
+                        -
+                      </button>
+                      <span className="flex-1 text-center text-xs font-extrabold text-stone-800">{servings}</span>
+                      <button
+                        type="button"
+                        onClick={() => setServings(Math.min(12, servings + 1))}
+                        className="w-7 h-7 rounded-lg bg-white border border-stone-200 font-extrabold text-xs text-stone-700 flex items-center justify-center hover:bg-stone-100"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Specific Instructions & Kid-Friendly Toggle */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-bold text-stone-700">Specific Prompt or Craving (Optional)</label>
+                    <label className="flex items-center gap-1.5 text-xs font-bold text-stone-600 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={kidFriendly}
+                        onChange={e => setKidFriendly(e.target.checked)}
+                        className="rounded border-stone-300 text-orange-600 focus:ring-orange-500"
+                      />
+                      <span>Kid Friendly 👶</span>
+                    </label>
+                  </div>
+                  <input
+                    type="text"
+                    value={prompt}
+                    onChange={e => setPrompt(e.target.value)}
+                    placeholder="e.g. ready in under 20 mins, high protein, comforting soup"
+                    className="w-full text-xs font-semibold bg-stone-50 border border-stone-200 rounded-2xl px-4 py-3 text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+
+                {/* Suggest CTA Button */}
+                <button
+                  onClick={handleSuggest}
+                  disabled={suggesting}
+                  className="w-full py-4 rounded-2xl bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500 hover:from-orange-700 hover:to-amber-600 text-white font-black text-sm tracking-wide shadow-warm-glow hover:shadow-card-hover transition duration-200 active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {suggesting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Matching recipes with ingredients & photo search…</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>✨</span>
+                      <span>Suggest Recipes ({data.pantry.length} pantry items ready)</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Recipe Results View */}
+              {results && (
+                <div className="space-y-6 animate-fade-in">
+                  {/* Status Banner */}
+                  <div className="p-4 rounded-2xl bg-white border border-stone-200 flex justify-between items-center">
+                    <div>
+                      <h3 className="text-sm font-extrabold text-stone-900">{results.message || 'Recipes Matched'}</h3>
+                      {results.notes && results.notes.length > 0 && (
+                        <p className="text-xs text-stone-500 mt-0.5">{results.notes[0]}</p>
+                      )}
+                    </div>
+                    <span className="text-xs font-bold px-3 py-1 rounded-full bg-orange-50 text-orange-800 border border-orange-200">
+                      {results.favourites.length + results.alternatives.length + (results.near ? 1 : 0)} options
+                    </span>
+                  </div>
+
+                  {/* Section 1: Cookable Home Favourites (Wide Comfort Journal Cards) */}
+                  {results.favourites.length > 0 && (
+                    <div className="space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 p-3.5 rounded-2xl bg-orange-50/80 border border-orange-200">
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-xl">🍲</span>
+                          <div>
+                            <h3 className="text-sm font-black text-stone-900">Your Familiar Home Recipes (100% Cookable Now)</h3>
+                            <p className="text-[11px] text-stone-600 font-medium">Matched from your personal recipe book. Everything is already in your kitchen!</p>
+                          </div>
+                        </div>
+                        <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase bg-orange-600 text-white self-start sm:self-auto shadow-sm">
+                          Household Favorites First
+                        </span>
+                      </div>
+                      <div className="space-y-4">
+                        {results.favourites.map(r => (
+                          <HomeRecipeCard
+                            key={r.name}
+                            recipe={r}
+                            onOpen={() => setActiveRecipe(r)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Section 2: One Step Away (Missing 1-2 ingredients) */}
+                  {results.near && (
+                    <div className="space-y-3 pt-2">
+                      <div className="flex items-center gap-2 px-1">
+                        <span className="text-lg">🛒</span>
+                        <div>
+                          <h3 className="text-sm font-black text-stone-900">One Step Away (Missing Just 1-2 Items)</h3>
+                          <p className="text-[11px] text-stone-500 font-medium">A familiar recipe you can make by picking up just one ingredient.</p>
+                        </div>
+                      </div>
+                      <NearMatchRecipeCard
+                        recipe={results.near}
+                        onOpen={() => setActiveRecipe(results.near)}
+                        onAddShopping={() => {
+                          if (!requireAuth('add missing items to shopping')) return;
+                          fetch('/api/shopping', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ names: results.near.missing })
+                          }).then(() => {
+                            showToast(`Added ${results.near.missing.join(', ')} to shopping list!`);
+                            fetchKitchen();
+                          });
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Section 3: Creative New Ideas to Explore (Compact Bento Discovery Cards) */}
+                  {results.alternatives.length > 0 && (
+                    <div className="space-y-3 pt-3 border-t border-stone-200">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200">
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-xl">✨</span>
+                          <div>
+                            <h3 className="text-sm font-black text-stone-900">Creative New Ideas to Explore</h3>
+                            <p className="text-[11px] text-stone-600 font-medium">Smart culinary twists matching your cuisine, using what's already in your pantry.</p>
+                          </div>
+                        </div>
+                        <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-amber-200 text-stone-900 self-start sm:self-auto">
+                          Creative Ideas to Explore
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {results.alternatives.map(r => (
+                          <DiscoveryRecipeCard
+                            key={r.name}
+                            recipe={r}
+                            onOpen={() => setActiveRecipe(r)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* =============================================================== */}
+          {/* TAB 2: MY KITCHEN (Pantry, Essentials, Restrictions, Dishes)     */}
+          {/* =============================================================== */}
+          {tab === 'kitchen' && (
+            <div className="space-y-6">
+              {/* Subtabs Header */}
+              <div className="flex border-b border-stone-200 overflow-x-auto no-scrollbar gap-2 sm:gap-4">
+                {[
+                  { id: 'pantry', label: `Pantry Inventory (${data.pantry.length})` },
+                  { id: 'essentials', label: `Essentials (${data.essential.length})` },
+                  { id: 'dishes', label: `Home Recipes (${data.dishes.length})` },
+                  { id: 'restricted', label: `Restricted & Allergies (${data.prohibited.length})` },
+                ].map(sub => (
+                  <button
+                    key={sub.id}
+                    onClick={() => setKitchenTab(sub.id)}
+                    className={`py-3 px-3.5 text-xs font-extrabold border-b-2 transition whitespace-nowrap ${
+                      kitchenTab === sub.id
+                        ? 'border-orange-600 text-orange-700'
+                        : 'border-transparent text-stone-500 hover:text-stone-900'
+                    }`}
+                  >
+                    {sub.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Sub-view: Pantry */}
+              {kitchenTab === 'pantry' && (
+                <PantrySection
+                  items={data.pantry}
+                  filter={pantryFilter}
+                  setFilter={setPantryFilter}
+                  onRefresh={fetchKitchen}
+                  onEditItem={(item) => {
+                    if (requireAuth('edit ingredients')) setEditPantryItem(item);
+                  }}
+                  requireAuth={requireAuth}
+                  showToast={showToast}
+                />
+              )}
+
+              {/* Sub-view: Essentials */}
+              {kitchenTab === 'essentials' && (
+                <ListSection
+                  title="Kitchen Essentials"
+                  hint="Oil, salt, water, spices & sauces you always keep. Cook AI never assumes you have them unless saved here."
+                  placeholder="e.g. salt, olive oil, cumin"
+                  items={data.essential}
+                  quickAdd={COMMON_ESSENTIALS}
+                  apiEndpoint="/api/essentials"
+                  onRefresh={fetchKitchen}
+                  requireAuth={requireAuth}
+                  showToast={showToast}
+                />
+              )}
+
+              {/* Sub-view: Restricted */}
+              {kitchenTab === 'restricted' && (
+                <ListSection
+                  title="Restricted & Allergies"
+                  hint="Never suggested, in any dish or step. Strict token matching: 'milk' also blocks 'coconut milk'."
+                  placeholder="e.g. peanut, mushroom, pork"
+                  items={data.prohibited}
+                  apiEndpoint="/api/restricted"
+                  onRefresh={fetchKitchen}
+                  requireAuth={requireAuth}
+                  showToast={showToast}
+                />
+              )}
+
+              {/* Sub-view: Home Recipes */}
+              {kitchenTab === 'dishes' && (
+                <HomeDishesSection
+                  dishes={data.dishes}
+                  pantry={data.pantry}
+                  onRefresh={fetchKitchen}
+                  onEditDish={(dish) => {
+                    if (requireAuth('edit home recipes')) setEditDishItem(dish);
+                  }}
+                  requireAuth={requireAuth}
+                  showToast={showToast}
+                />
+              )}
+            </div>
+          )}
+
+          {/* =============================================================== */}
+          {/* TAB 3: SHOPPING LIST                                            */}
+          {/* =============================================================== */}
+          {tab === 'shopping' && (
+            <ShoppingSection
+              items={data.shopping}
+              onRefresh={fetchKitchen}
+              requireAuth={requireAuth}
+              showToast={showToast}
+            />
+          )}
+
+          {/* =============================================================== */}
+          {/* TAB 4: COOK HISTORY                                             */}
+          {/* =============================================================== */}
+          {tab === 'history' && (
+            <HistorySection
+              stats={data.stats}
+              showToast={showToast}
+            />
+          )}
+
+          {/* =============================================================== */}
+          {/* MODALS                                                          */}
+          {/* =============================================================== */}
+
+          {/* 1. Full Recipe Detail Modal with Step Checkboxes & Scaler */}
+          {activeRecipe && (
+            <RecipeDetailModal
+              recipe={activeRecipe}
+              initialServings={servings}
+              pantry={data.pantry}
+              onClose={() => setActiveRecipe(null)}
+              onCooked={() => {
+                if (requireAuth('record cooked meal')) setCookedModal(activeRecipe);
+              }}
+            />
+          )}
+
+          {/* 2. Cooked Deduction Modal */}
+          {cookedModal && (
+            <CookedDeductionModal
+              recipe={cookedModal}
+              pantry={data.pantry}
+              onClose={() => setCookedModal(null)}
+              onConfirm={(usedIds) => handleRecordCooked(cookedModal.name, cookedModal.source, usedIds)}
+            />
+          )}
+
+          {/* 3. Edit Pantry Item Modal (Name, Expiry Date, Priority) */}
+          {editPantryItem && (
+            <EditPantryModal
+              item={editPantryItem}
+              onClose={() => setEditPantryItem(null)}
+              onSaved={() => {
+                setEditPantryItem(null);
+                fetchKitchen();
+              }}
+              showToast={showToast}
+            />
+          )}
+
+          {/* 4. Edit Home Recipe Modal (Name & Ingredients List) */}
+          {editDishItem && (
+            <EditDishModal
+              dish={editDishItem}
+              pantry={data.pantry}
+              onClose={() => setEditDishItem(null)}
+              onSaved={() => {
+                setEditDishItem(null);
+                fetchKitchen();
+              }}
+              showToast={showToast}
+            />
+          )}
+
+          {/* 5. Google Sign-In Required Auth Modal */}
+          {authModalOpen && (
+            <AuthModal
+              onClose={() => setAuthModalOpen(false)}
+              config={config}
+              onDevLogin={handleDevLogin}
+              showToast={showToast}
+            />
+          )}
+
+          {/* 6. Feedback Modal */}
+          {feedbackOpen && (
+            <FeedbackModal
+              onClose={() => setFeedbackOpen(false)}
+              user={user}
+              showToast={showToast}
+            />
+          )}
+
+          {/* Mobile Bottom Navigation Bar */}
+          <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-stone-200 px-3 py-2 flex justify-around items-center shadow-lg">
+            {[
+              { id: 'cook', icon: '🍳', label: 'Suggest' },
+              { id: 'kitchen', icon: '🧺', label: 'Kitchen' },
+              { id: 'shopping', icon: '🛒', label: 'Shopping' },
+              { id: 'history', icon: '🕘', label: 'History' },
+            ].map(item => (
+              <button
+                key={item.id}
+                onClick={() => setTab(item.id)}
+                className={`flex flex-col items-center py-1 px-3 text-xs font-bold transition ${
+                  tab === item.id ? 'text-orange-600 scale-105' : 'text-stone-400'
+                }`}
+              >
+                <span className="text-xl">{item.icon}</span>
+                <span className="text-[10px] mt-0.5">{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // Component: Recipe Card (Warm Aesthetic with Photo & Badges)
+    // =========================================================================
+    // Component: Structurally Distinct Recipe Cards
+    // =========================================================================
+
+    // 1. Home Recipe Card: Wide Comfort-Journal Layout with Pantry Verification
+    function HomeRecipeCard({ recipe, onOpen }) {
+      return (
+        <div className="bg-white border-2 border-orange-200/80 rounded-3xl p-5 shadow-card hover:shadow-card-hover transition duration-200 flex flex-col sm:flex-row gap-5 items-stretch relative overflow-hidden group">
+          <div className="absolute top-0 left-0 w-2 h-full bg-orange-500"></div>
+
+          {/* Dish Image */}
+          <div className="w-full sm:w-52 h-44 sm:h-auto rounded-2xl overflow-hidden relative shrink-0 bg-stone-100">
+            {recipe.photo_url ? (
+              <img src={recipe.photo_url} alt={recipe.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-4xl bg-gradient-to-tr from-orange-50 to-amber-100">
+                <span>🍲</span>
+              </div>
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"></div>
+            {recipe.minutes && (
+              <span className="absolute bottom-2.5 left-2.5 px-2.5 py-1 rounded-lg bg-black/70 text-white text-[11px] font-bold backdrop-blur-sm border border-white/20">
+                ⏱ {recipe.minutes} min
+              </span>
+            )}
+          </div>
+
+          {/* Details & Checklist */}
+          <div className="flex-1 flex flex-col justify-between space-y-3.5">
+            <div>
+              <div className="flex items-start justify-between gap-3 mb-1.5 flex-wrap">
+                <span className="px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-900 border border-orange-200 text-[10px] font-black uppercase tracking-wider">
+                  🍲 Household Staple
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-extrabold flex items-center gap-1 shrink-0">
+                  <span className="text-emerald-600 font-bold">✓</span> 100% In Pantry
+                </span>
+              </div>
+
+              <h3 className="text-lg font-black text-stone-900 leading-snug group-hover:text-orange-700 transition">
+                {recipe.name}
+              </h3>
+
+              <div className="mt-2.5">
+                <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block mb-1">
+                  Pantry Ingredients Matched:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {recipe.ingredients.slice(0, 7).map((ing, idx) => (
+                    <span key={idx} className="px-2.5 py-1 rounded-lg bg-stone-100 text-stone-800 text-xs font-semibold flex items-center gap-1">
+                      <span className="text-emerald-600 font-bold">✓</span> {ing}
+                    </span>
+                  ))}
+                  {recipe.ingredients.length > 7 && (
+                    <span className="px-2 py-1 rounded-lg text-stone-400 text-xs font-semibold">
+                      +{recipe.ingredients.length - 7} more
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-stone-100 flex items-center justify-between gap-3">
+              <span className="text-xs text-stone-500 font-medium">Ready to cook right now</span>
+              <button
+                onClick={onOpen}
+                className="py-2.5 px-5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs shadow-sm flex items-center gap-1.5 transition active:scale-95"
+              >
+                <span>Cook Tonight</span>
+                <span>→</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // 2. Near Match Recipe Card: Missing 1-2 items with 1-click Add to Shopping List
+    function NearMatchRecipeCard({ recipe, onOpen, onAddShopping }) {
+      return (
+        <div className="bg-white border-2 border-amber-200/80 rounded-3xl p-5 shadow-card hover:shadow-card-hover transition duration-200 flex flex-col sm:flex-row gap-5 items-stretch relative overflow-hidden group">
+          <div className="absolute top-0 left-0 w-2 h-full bg-amber-500"></div>
+
+          <div className="w-full sm:w-52 h-44 sm:h-auto rounded-2xl overflow-hidden relative shrink-0 bg-stone-100">
+            {recipe.photo_url ? (
+              <img src={recipe.photo_url} alt={recipe.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-4xl bg-gradient-to-tr from-amber-50 to-orange-100">
+                <span>🥘</span>
+              </div>
+            )}
+            {recipe.minutes && (
+              <span className="absolute bottom-2.5 left-2.5 px-2.5 py-1 rounded-lg bg-black/70 text-white text-[11px] font-bold backdrop-blur-sm border border-white/20">
+                ⏱ {recipe.minutes} min
+              </span>
+            )}
+          </div>
+
+          <div className="flex-1 flex flex-col justify-between space-y-3.5">
+            <div>
+              <div className="flex items-start justify-between gap-3 mb-1.5 flex-wrap">
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-black uppercase tracking-wider">
+                  🛒 1-2 Items Away
+                </span>
+              </div>
+
+              <h3 className="text-lg font-black text-stone-900 leading-snug group-hover:text-amber-800 transition">
+                {recipe.name}
+              </h3>
+
+              {recipe.missing && recipe.missing.length > 0 && (
+                <div className="mt-2 p-3 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 font-medium flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div>
+                    <span className="font-extrabold text-amber-800">Missing from pantry: </span>
+                    <span className="font-bold underline">{recipe.missing.join(', ')}</span>
+                  </div>
+                  {onAddShopping && (
+                    <button
+                      type="button"
+                      onClick={onAddShopping}
+                      className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs shadow-sm flex items-center gap-1.5 self-start sm:self-auto transition active:scale-95"
+                    >
+                      <span>＋ 🛒 Add to Shopping List</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-stone-100 flex items-center justify-between gap-3">
+              <span className="text-xs text-stone-500 font-medium">Pick up 1 item to unlock recipe</span>
+              <button
+                onClick={onOpen}
+                className="py-2.5 px-5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs shadow-sm flex items-center gap-1.5 transition active:scale-95"
+              >
+                <span>View Recipe</span>
+                <span>→</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // 3. Discovery Recipe Card: Sleek Bento Grid with Sparkle Twist Badges
+    function DiscoveryRecipeCard({ recipe, onOpen }) {
+      return (
+        <div className="bg-gradient-to-br from-amber-50/50 via-white to-stone-50 border border-amber-200/80 rounded-3xl p-4 shadow-card hover:shadow-card-hover transition duration-200 flex flex-col justify-between group">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-900 border border-amber-300 text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
+                <span>✨</span> Creative Twist
+              </span>
+              {recipe.minutes && (
+                <span className="text-xs font-bold text-stone-500">⏱ {recipe.minutes} min</span>
+              )}
+            </div>
+
+            <div className="h-36 w-full rounded-2xl overflow-hidden relative bg-stone-100 shadow-inner">
+              {recipe.photo_url ? (
+                <img src={recipe.photo_url} alt={recipe.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-3xl bg-gradient-to-tr from-amber-50 to-orange-100">
+                  <span>✨</span>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <h3 className="font-extrabold text-sm text-stone-900 leading-snug group-hover:text-amber-800 transition">
+                {recipe.name}
+              </h3>
+
+              <div className="mt-1.5 p-2 rounded-xl bg-amber-100/70 border border-amber-200 text-[11px] text-amber-900 font-semibold leading-tight">
+                💡 Creative twist using what is already in your kitchen
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-1">
+              {recipe.ingredients.slice(0, 4).map((ing, idx) => (
+                <span key={idx} className="px-2 py-0.5 rounded-lg bg-stone-100 text-stone-700 text-[11px] font-semibold">
+                  {ing}
+                </span>
+              ))}
+              {recipe.ingredients.length > 4 && (
+                <span className="px-1.5 py-0.5 rounded-lg text-stone-400 text-[10px] font-bold">
+                  +{recipe.ingredients.length - 4}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-amber-100/80 flex items-center justify-between mt-3">
+            <span className="text-[11px] font-bold text-stone-400">Pantry Friendly</span>
+            <button
+              onClick={onOpen}
+              className="py-2 px-4 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-extrabold text-xs shadow-sm flex items-center gap-1 transition active:scale-95"
+            >
+              <span>Try Dish</span>
+              <span>✨</span>
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Generic fallback for any other callers
+    function RecipeCard({ recipe, isHomeRecipe, isNewIdea, isNearMatch, onOpen, onAddShopping }) {
+      if (isHomeRecipe) return <HomeRecipeCard recipe={recipe} onOpen={onOpen} />;
+      if (isNearMatch) return <NearMatchRecipeCard recipe={recipe} onOpen={onOpen} onAddShopping={onAddShopping} />;
+      return <DiscoveryRecipeCard recipe={recipe} onOpen={onOpen} />;
+    }
+
+    // =========================================================================
+    // Component: Recipe Detail Modal with Interactive Checklists
+    // =========================================================================
+    function RecipeDetailModal({ recipe, initialServings, pantry, onClose, onCooked }) {
+      const [checkedSteps, setCheckedSteps] = useState([]);
+      const [modalServings, setModalServings] = useState(initialServings || 2);
+
+      const toggleStep = (index) => {
+        setCheckedSteps(prev => prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index]);
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-stone-200">
+            {/* Header / Hero Image */}
+            <div className="h-48 w-full overflow-hidden relative bg-stone-100">
+              {recipe.photo_url ? (
+                <img src={recipe.photo_url} alt={recipe.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-5xl bg-gradient-to-r from-orange-600 to-amber-600 text-white">
+                  🥘
+                </div>
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
+              
+              <button
+                onClick={onClose}
+                className="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center font-bold text-sm hover:bg-black/80 transition"
+              >
+                ✕
+              </button>
+
+              <div className="absolute bottom-4 left-5 right-5 text-white">
+                <span className="text-[10px] uppercase font-extrabold tracking-widest text-amber-300">Detailed Recipe</span>
+                <h2 className="text-xl font-extrabold tracking-tight">{recipe.name}</h2>
+                {recipe.minutes && <span className="text-xs text-stone-200 font-semibold">⏱ Total time: {recipe.minutes} mins</span>}
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Scaled Ingredients Header with Stepper */}
+              <div>
+                <div className="flex justify-between items-center mb-2.5">
+                  <div>
+                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-stone-500">Ingredients Checklist</h3>
+                    <p className="text-[11px] text-stone-400">Proportional quantities measured for your meal</p>
+                  </div>
+
+                  {/* Quick Serving Stepper */}
+                  <div className="flex items-center gap-1.5 border border-stone-200 bg-stone-50 rounded-xl px-2 py-1">
+                    <button
+                      onClick={() => setModalServings(Math.max(1, modalServings - 1))}
+                      className="w-5 h-5 rounded-md bg-white border border-stone-200 font-bold text-xs text-stone-700 flex items-center justify-center"
+                    >
+                      -
+                    </button>
+                    <span className="text-xs font-bold text-stone-800 px-1">{modalServings} ppl</span>
+                    <button
+                      onClick={() => setModalServings(Math.min(12, modalServings + 1))}
+                      className="w-5 h-5 rounded-md bg-white border border-stone-200 font-bold text-xs text-stone-700 flex items-center justify-center"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {(recipe.ingredients_with_quantities && recipe.ingredients_with_quantities.length > 0
+                    ? recipe.ingredients_with_quantities
+                    : recipe.ingredients
+                  ).map((ing, idx) => (
+                    <div key={idx} className="flex items-center gap-2 p-2.5 rounded-xl border border-stone-100 bg-stone-50/60 text-xs">
+                      <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+                      <span className="font-medium text-stone-800">{ing}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Step-by-Step Cooking Checklist */}
+              {recipe.steps && recipe.steps.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-extrabold uppercase tracking-wider text-stone-500 mb-2.5">
+                    Cooking Instructions ({recipe.steps.length} Steps)
+                  </h3>
+                  <div className="space-y-2">
+                    {recipe.steps.map((step, idx) => {
+                      const isDone = checkedSteps.includes(idx);
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => toggleStep(idx)}
+                          className={`p-3.5 rounded-2xl border transition cursor-pointer flex items-start gap-3 text-xs ${
+                            isDone ? 'bg-orange-50/50 border-orange-200 text-stone-400 line-through' : 'bg-white border-stone-200 text-stone-800 shadow-sm'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isDone}
+                            onChange={() => {}}
+                            className="mt-0.5 rounded border-stone-300 text-orange-600 focus:ring-orange-500 w-4 h-4 cursor-pointer"
+                          />
+                          <div className="flex-1">
+                            <span className="font-bold mr-1">Step {idx + 1}:</span>
+                            <span>{step}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* External Video & Search Links */}
+              <div className="flex flex-wrap gap-2.5 pt-2 border-t border-stone-100">
+                {recipe.youtube_url && (
+                  <a
+                    href={recipe.youtube_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 py-2.5 px-3 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs font-bold flex items-center justify-center gap-1.5 transition"
+                  >
+                    <span>▶️</span> YouTube Tutorial
+                  </a>
+                )}
+                {recipe.recipe_url && (
+                  <a
+                    href={recipe.recipe_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 py-2.5 px-3 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold flex items-center justify-center gap-1.5 transition"
+                  >
+                    <span>🔍</span> Google Full Recipe
+                  </a>
+                )}
+              </div>
+
+              {/* Cooked Action */}
+              <div className="pt-2">
+                <button
+                  onClick={onCooked}
+                  className="w-full py-3.5 rounded-2xl bg-stone-900 hover:bg-stone-800 text-white font-extrabold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <span>🎉</span>
+                  <span>I Cooked This Meal (Save to History)</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // Component: Edit Pantry Item Modal (Name, Expiry, Star)
+    // =========================================================================
+    function EditPantryModal({ item, onClose, onSaved, showToast }) {
+      const [name, setName] = useState(item.name || '');
+      const [expiresAt, setExpiresAt] = useState(item.expires_at || '');
+      const [useSoon, setUseSoon] = useState(Boolean(item.use_soon));
+      const [saving, setSaving] = useState(false);
+
+      const addDaysToToday = (days) => {
+        const d = new Date();
+        d.setDate(d.getDate() + days);
+        setExpiresAt(d.toISOString().slice(0, 10));
+      };
+
+      const handleSave = async (e) => {
+        e.preventDefault();
+        if (!name.trim()) return;
+        setSaving(true);
+        try {
+          const res = await fetch(`/api/pantry/${item.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: name.trim(),
+              expires_at: expiresAt || null,
+              use_soon: useSoon
+            })
+          });
+          if (res.status === 401) {
+            showToast('Sign in with Google required to save changes', '🔒');
+            return;
+          }
+          showToast(`Updated "${name}" successfully!`);
+          onSaved();
+        } catch (err) {
+          showToast('Failed to update ingredient', '❌');
+        } finally {
+          setSaving(false);
+        }
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-stone-200 space-y-4">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="text-base font-extrabold text-stone-900">Edit Pantry Ingredient</h3>
+                <p className="text-xs text-stone-500 mt-0.5">Update name, shelf life, or expiry priority.</p>
+              </div>
+              <button onClick={onClose} className="text-stone-400 hover:text-stone-700 font-bold p-1">✕</button>
+            </div>
+
+            <form onSubmit={handleSave} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-stone-700 block mb-1">Ingredient Name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  className="w-full text-xs font-semibold bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2.5 text-stone-800 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-stone-700 block mb-1">Expiration Date (Shelf Life)</label>
+                <input
+                  type="date"
+                  value={expiresAt}
+                  onChange={e => setExpiresAt(e.target.value)}
+                  className="w-full text-xs font-semibold bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2.5 text-stone-800 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+                {/* Quick Expiry Buttons */}
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => addDaysToToday(3)}
+                    className="px-2 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 text-[10px] font-bold"
+                  >
+                    +3 Days
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => addDaysToToday(7)}
+                    className="px-2 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 text-[10px] font-bold"
+                  >
+                    +7 Days
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => addDaysToToday(14)}
+                    className="px-2 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 text-[10px] font-bold"
+                  >
+                    +14 Days
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExpiresAt('')}
+                    className="px-2 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-[10px] font-bold"
+                  >
+                    Clear Date
+                  </button>
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2 p-3 rounded-xl border border-stone-200 bg-stone-50 cursor-pointer text-xs">
+                <input
+                  type="checkbox"
+                  checked={useSoon}
+                  onChange={e => setUseSoon(e.target.checked)}
+                  className="rounded border-stone-300 text-orange-600 focus:ring-orange-500 w-4 h-4"
+                />
+                <span className="font-bold text-stone-800">⭐ Prioritize using this item first (Use Soon)</span>
+              </label>
+
+              <div className="flex gap-2 pt-2 border-t border-stone-100">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="py-2.5 px-4 rounded-xl border border-stone-200 text-xs font-bold text-stone-600 hover:bg-stone-50 flex-1"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="py-2.5 px-4 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-extrabold flex-1 shadow-sm active:scale-95"
+                >
+                  {saving ? 'Saving…' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // Component: Edit Home Recipe Modal (Name, Pantry Picker & Ingredients List)
+    // =========================================================================
+    function EditDishModal({ dish, pantry, onClose, onSaved, showToast }) {
+      const [name, setName] = useState(dish.name || '');
+      const [ingredients, setIngredients] = useState(dish.ingredients || []);
+      const [newIng, setNewIng] = useState('');
+      const [saving, setSaving] = useState(false);
+      const [proposing, setProposing] = useState(false);
+
+      const addIngredient = (e) => {
+        if (e) e.preventDefault();
+        const trimmed = newIng.trim();
+        if (!trimmed) return;
+        if (!ingredients.map(i => i.toLowerCase()).includes(trimmed.toLowerCase())) {
+          setIngredients([...ingredients, trimmed]);
+        }
+        setNewIng('');
+      };
+
+      const togglePantryIngredient = (pantryName) => {
+        const trimmed = pantryName.trim();
+        const exists = ingredients.some(i => i.toLowerCase() === trimmed.toLowerCase());
+        if (exists) {
+          setIngredients(ingredients.filter(i => i.toLowerCase() !== trimmed.toLowerCase()));
+        } else {
+          setIngredients([...ingredients, trimmed]);
+        }
+      };
+
+      const handleProposeAi = async () => {
+        if (!name.trim()) return;
+        setProposing(true);
+        try {
+          const res = await fetch('/api/dishes/propose', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name.trim() })
+          });
+          const json = await res.json();
+          if (json.ok && json.ingredients && json.ingredients.length) {
+            const currentLower = ingredients.map(i => i.toLowerCase());
+            const merged = [...ingredients];
+            json.ingredients.forEach(item => {
+              if (!currentLower.includes(item.toLowerCase())) {
+                merged.push(item);
+                currentLower.push(item.toLowerCase());
+              }
+            });
+            setIngredients(merged);
+            showToast(`Added ${json.ingredients.length} typical ingredients! ✨`);
+          }
+        } catch (e) {
+          showToast('Could not fetch AI suggestions', '❌');
+        } finally {
+          setProposing(false);
+        }
+      };
+
+      const removeIngredient = (ingToRemove) => {
+        setIngredients(ingredients.filter(i => i !== ingToRemove));
+      };
+
+      const handleSave = async (e) => {
+        e.preventDefault();
+        if (!name.trim()) return;
+        setSaving(true);
+        try {
+          const res = await fetch(`/api/dishes/${dish.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: name.trim(),
+              ingredients: ingredients
+            })
+          });
+          if (res.status === 401) {
+            showToast('Sign in with Google required to save changes', '🔒');
+            return;
+          }
+          showToast(`Updated "${name}" successfully!`);
+          onSaved();
+        } catch (err) {
+          showToast('Failed to update recipe', '❌');
+        } finally {
+          setSaving(false);
+        }
+      };
+
+      const availablePantry = pantry || [];
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-stone-200 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="text-base font-extrabold text-stone-900">Edit Home Recipe</h3>
+                <p className="text-xs text-stone-500 mt-0.5">Customize dish name and add or remove ingredients.</p>
+              </div>
+              <button onClick={onClose} className="text-stone-400 hover:text-stone-700 font-bold p-1">✕</button>
+            </div>
+
+            <form onSubmit={handleSave} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-stone-700 block mb-1">Dish Name</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    className="flex-1 text-xs font-semibold bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2.5 text-stone-800 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={handleProposeAi}
+                    disabled={proposing || !name.trim()}
+                    className="py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold whitespace-nowrap"
+                  >
+                    {proposing ? 'Finding…' : '✨ Ask AI'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Pick from Pantry */}
+              {availablePantry.length > 0 && (
+                <div className="space-y-1">
+                  <label className="text-[11px] font-extrabold text-stone-500 uppercase tracking-wider block">
+                    Quick-Pick from Your Pantry:
+                  </label>
+                  <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-2 rounded-xl bg-stone-50 border border-stone-200">
+                    {availablePantry.map(p => {
+                      const isSelected = ingredients.some(i => i.toLowerCase() === p.name.toLowerCase());
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => togglePantryIngredient(p.name)}
+                          className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition ${
+                            isSelected
+                              ? 'bg-orange-600 text-white shadow-sm'
+                              : 'bg-white text-stone-700 border border-stone-200 hover:bg-orange-50'
+                          }`}
+                        >
+                          {isSelected ? '✓ ' : '+ '}{p.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="text-xs font-bold text-stone-700 block mb-1">
+                  Ingredients ({ingredients.length})
+                </label>
+                <div className="flex flex-wrap gap-1.5 p-3 rounded-2xl bg-stone-50 border border-stone-200 min-h-[64px] max-h-40 overflow-y-auto">
+                  {ingredients.map(ing => (
+                    <span
+                      key={ing}
+                      className="px-2.5 py-1 rounded-lg bg-white border border-stone-200 text-stone-800 text-xs font-semibold flex items-center gap-1.5 shadow-sm"
+                    >
+                      <span>{ing}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeIngredient(ing)}
+                        className="text-stone-400 hover:text-red-500 font-bold"
+                        title="Remove ingredient"
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ))}
+                  {ingredients.length === 0 && (
+                    <span className="text-xs text-stone-400 italic">No ingredients added yet. Add some below!</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Add ingredient input */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newIng}
+                  onChange={e => setNewIng(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addIngredient(); } }}
+                  placeholder="Type an ingredient (e.g. garlic, cumin, paneer)"
+                  className="flex-1 text-xs font-semibold bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2.5 text-stone-800 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+                <button
+                  type="button"
+                  onClick={addIngredient}
+                  className="py-2.5 px-4 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold"
+                >
+                  ＋ Add
+                </button>
+              </div>
+
+              <div className="flex gap-2 pt-2 border-t border-stone-100">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="py-2.5 px-4 rounded-xl border border-stone-200 text-xs font-bold text-stone-600 hover:bg-stone-50 flex-1"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="py-2.5 px-4 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-extrabold flex-1 shadow-sm active:scale-95"
+                >
+                  {saving ? 'Saving…' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // Component: Google Sign-In Required Auth Modal
+    // =========================================================================
+    function AuthModal({ onClose, config, onDevLogin, showToast }) {
+      const [devEmail, setDevEmail] = useState('shama@gmail.com');
+      const [showOriginHelp, setShowOriginHelp] = useState(false);
+
+      useEffect(() => {
+        if (config && config.google_client_id && window.google && window.google.accounts && window.google.accounts.id) {
+          const container = document.getElementById('modal-google-btn-container');
+          if (container) {
+            window.google.accounts.id.renderButton(container, {
+              theme: 'filled_blue',
+              size: 'large',
+              shape: 'pill',
+              text: 'continue_with',
+              width: 280,
+            });
+          }
+        }
+      }, [config]);
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/70 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-stone-200 text-center space-y-4 max-h-[92vh] overflow-y-auto">
+            <div className="w-14 h-14 rounded-2xl bg-orange-500/10 border border-orange-500/20 text-orange-600 flex items-center justify-center text-3xl mx-auto shadow-sm">
+              🔒
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-black text-stone-900">Sign in to Cook AI</h3>
+              <p className="text-xs text-stone-500 mt-1">
+                Sign in to customize pantry items, edit shelf-life, and keep your kitchen synced across devices.
+              </p>
+            </div>
+
+            {/* Google One-Tap / Sign-In Button */}
+            <div className="pt-2 flex justify-center">
+              <div id="modal-google-btn-container"></div>
+            </div>
+
+            {/* Origin Error Troubleshooting Accordion */}
+            <div className="text-left border border-amber-200 bg-amber-50/80 rounded-2xl p-3.5 space-y-2">
+              <button
+                type="button"
+                onClick={() => setShowOriginHelp(!showOriginHelp)}
+                className="flex items-center justify-between w-full text-xs font-bold text-amber-900"
+              >
+                <span className="flex items-center gap-1.5">
+                  <span>⚠️</span>
+                  <span>Google "Error 401: invalid_client / no registered origin"?</span>
+                </span>
+                <span className="text-xs">{showOriginHelp ? '▲' : '▼'}</span>
+              </button>
+              
+              {showOriginHelp && (
+                <div className="text-[11px] text-amber-900 space-y-2 pt-2 border-t border-amber-200 leading-relaxed font-medium">
+                  <p>Google requires your app's address in <strong>Authorized JavaScript origins</strong>:</p>
+                  <ol className="list-decimal list-inside space-y-1.5 pl-1">
+                    <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="underline font-bold text-amber-950">Google Cloud Console → Credentials</a></li>
+                    <li>Click your OAuth 2.0 Client ID</li>
+                    <li>Under <strong>Authorized JavaScript origins</strong>, click <strong>+ ADD URI</strong>:
+                      <div className="mt-1 font-mono text-[10px] bg-white p-1.5 rounded-lg border border-amber-200 text-stone-900 select-all font-bold">
+                        http://localhost:8000
+                      </div>
+                      <div className="mt-1 font-mono text-[10px] bg-white p-1.5 rounded-lg border border-amber-200 text-stone-900 select-all font-bold">
+                        http://localhost:8501
+                      </div>
+                    </li>
+                    <li>Click <strong>Save</strong>. (Takes 1-2 mins to propagate)</li>
+                  </ol>
+                </div>
+              )}
+            </div>
+
+            {/* Instant Dev / Test Login */}
+            <div className="pt-2 border-t border-stone-100">
+              <span className="text-[11px] font-bold text-stone-500 block mb-2">Or continue with Instant Test Sign-In:</span>
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  value={devEmail}
+                  onChange={e => setDevEmail(e.target.value)}
+                  placeholder="e.g. shama@gmail.com"
+                  className="flex-1 text-xs font-semibold bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 text-stone-800 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => onDevLogin(devEmail)}
+                  className="py-2.5 px-4 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-extrabold active:scale-95 shadow-sm whitespace-nowrap"
+                >
+                  Sign In Instantly
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={onClose}
+              className="text-xs font-bold text-stone-400 hover:text-stone-700 pt-1 block mx-auto"
+            >
+              Cancel and continue browsing
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // Component: Feedback & Feature Requests Modal
+    // =========================================================================
+    function FeedbackModal({ onClose, user, showToast }) {
+      const [type, setType] = useState('idea');
+      const [email, setEmail] = useState(user && user.email ? user.email : '');
+      const [message, setMessage] = useState('');
+      const [rating, setRating] = useState(5);
+      const [submitting, setSubmitting] = useState(false);
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!message.trim()) return;
+        setSubmitting(true);
+        try {
+          const res = await fetch('/api/feedback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, message, rating, type })
+          });
+          const json = await res.json();
+          if (json.status === 'ok') {
+            showToast('Feedback sent directly to developer! Thank you ❤️');
+            onClose();
+          } else {
+            showToast('Could not send feedback.', '❌');
+          }
+        } catch (err) {
+          showToast('Failed to send feedback.', '❌');
+        } finally {
+          setSubmitting(false);
+        }
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/70 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-stone-200 space-y-4">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="text-base font-extrabold text-stone-900">Send Feedback to Developer</h3>
+                <p className="text-xs text-stone-500 mt-0.5">Share bug reports, feature ideas, or kitchen requests.</p>
+              </div>
+              <button onClick={onClose} className="text-stone-400 hover:text-stone-700 font-bold p-1">✕</button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-3.5">
+              <div className="grid grid-cols-3 gap-1.5">
+                {[
+                  { id: 'idea', label: '💡 Idea' },
+                  { id: 'bug', label: '🐛 Bug' },
+                  { id: 'praise', label: '⭐ Note' },
+                ].map(item => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setType(item.id)}
+                    className={`py-2 text-xs font-bold rounded-xl border transition ${
+                      type === item.id ? 'border-orange-600 bg-orange-50 text-orange-950 shadow-sm' : 'border-stone-200 bg-stone-50 text-stone-600'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-stone-700 block mb-1">Your Email (Optional)</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="e.g. yourname@gmail.com"
+                  className="w-full text-xs font-semibold bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-stone-800 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-stone-700 block mb-1">Feedback or Request</label>
+                <textarea
+                  value={message}
+                  onChange={e => setMessage(e.target.value)}
+                  rows="3"
+                  required
+                  placeholder="What would make Cook AI even better for your cooking?"
+                  className="w-full text-xs font-semibold bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-stone-800 focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+                ></textarea>
+              </div>
+
+              <div className="flex gap-2 pt-2 border-t border-stone-100">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="py-2.5 px-4 rounded-xl border border-stone-200 text-xs font-bold text-stone-600 hover:bg-stone-50 flex-1"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="py-2.5 px-4 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-extrabold flex-1 shadow-sm active:scale-95"
+                >
+                  {submitting ? 'Sending…' : 'Send to Developer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // Component: Pantry Section with InFoodAI Freshness Progress Bars & Edit
+    // =========================================================================
+    function PantrySection({ items, filter, setFilter, onRefresh, onEditItem, requireAuth, showToast }) {
+      const [input, setInput] = useState('');
+
+      const handleAdd = async (e) => {
+        e.preventDefault();
+        if (!requireAuth('add pantry items')) return;
+        const names = input.split(/[,;\n]/).map(s => s.trim()).filter(Boolean);
+        if (!names.length) return;
+        const res = await fetch('/api/pantry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ names })
+        });
+        if (res.status === 401) {
+          showToast('Please sign in with Google to add items', '🔒');
+          return;
+        }
+        setInput('');
+        showToast(`Added ${names.length} pantry items!`);
+        onRefresh();
+      };
+
+      const handleRemove = async (id) => {
+        if (!requireAuth('remove pantry items')) return;
+        const res = await fetch('/api/pantry', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: [id] })
+        });
+        if (res.status === 401) {
+          showToast('Please sign in with Google to remove items', '🔒');
+          return;
+        }
+        showToast('Removed item');
+        onRefresh();
+      };
+
+      const toggleSoon = async (id, current) => {
+        if (!requireAuth('star items')) return;
+        const res = await fetch(`/api/pantry/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ use_soon: !current })
+        });
+        if (res.status === 401) {
+          showToast('Please sign in with Google to modify items', '🔒');
+          return;
+        }
+        onRefresh();
+      };
+
+      return (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-extrabold text-stone-800">Fresh Food Inventory & Expiry Tracker</h3>
+              <p className="text-xs text-stone-500 mt-0.5">Cook AI tracks shelf-life and notifies you when ingredients near expiration so you can rescue them in time.</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleAdd} className="flex gap-2">
+            <input
+              type="text"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              placeholder="e.g. fresh chicken, tomato, basmati rice, spinach"
+              className="flex-1 text-xs font-semibold bg-white border border-stone-200 rounded-2xl px-4 py-3 text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-orange-500 shadow-card"
+            />
+            <button type="submit" className="py-3 px-5 rounded-2xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-extrabold shadow-sm active:scale-95">
+              ＋ Add
+            </button>
+          </form>
+
+          {items.length === 0 ? (
+            <div className="p-10 rounded-3xl bg-white border border-stone-200 text-center space-y-2.5">
+              <span className="text-4xl">🧺</span>
+              <h4 className="text-sm font-extrabold text-stone-800">Your pantry is currently empty</h4>
+              <p className="text-xs text-stone-400 max-w-sm mx-auto">Add ingredients using the input box above to start getting recipe recommendations.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5">
+              {items.map(item => {
+                const status = item.expiry_status || {};
+                const badgeColor = status.color === 'red' ? 'bg-red-50 text-red-700 border-red-200' : status.color === 'amber' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-green-50 text-green-700 border-green-200';
+                const barColor = status.color === 'red' ? 'bg-red-500' : status.color === 'amber' ? 'bg-amber-400' : 'bg-green-500';
+
+                return (
+                  <div key={item.id} className="p-3.5 rounded-2xl bg-white border border-stone-200/90 shadow-card hover:shadow-card-hover transition flex flex-col justify-between space-y-2.5 group">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => toggleSoon(item.id, item.use_soon)}
+                          className={`text-base ${item.use_soon ? 'text-amber-500' : 'text-stone-300 hover:text-amber-400'}`}
+                          title="Star to prioritize using this item up today"
+                        >
+                          ⭐
+                        </button>
+                        <div>
+                          <div className="text-xs font-extrabold text-stone-900">{item.name}</div>
+                          <span className={`inline-block px-1.5 py-0.2 rounded-md text-[9px] font-bold border ${badgeColor} mt-0.5`}>
+                            {status.label || 'Fresh'}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Edit & Remove Buttons */}
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => onEditItem(item)}
+                          className="text-stone-400 hover:text-orange-600 text-xs p-1"
+                          title="Edit ingredient & shelf life"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={() => handleRemove(item.id)}
+                          className="text-stone-300 hover:text-red-500 text-xs p-1"
+                          title="Remove item"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Freshness Progress Bar */}
+                    <div className="w-full bg-stone-100 rounded-full h-1 overflow-hidden">
+                      <div className={`${barColor} h-1 rounded-full transition-all duration-300`} style={{ width: status.color === 'red' ? '20%' : status.color === 'amber' ? '50%' : '90%' }}></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // Component: Generic List Section (Essentials, Restrictions)
+    // =========================================================================
+    function ListSection({ title, hint, placeholder, items, quickAdd, apiEndpoint, onRefresh, requireAuth, showToast }) {
+      const [input, setInput] = useState('');
+
+      const handleAdd = async (namesToAdd) => {
+        if (!requireAuth('modify list')) return;
+        const names = namesToAdd || input.split(/[,;\n]/).map(s => s.trim()).filter(Boolean);
+        if (!names.length) return;
+        const res = await fetch(apiEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ names })
+        });
+        if (res.status === 401) {
+          showToast('Please sign in with Google to add items', '🔒');
+          return;
+        }
+        setInput('');
+        showToast(`Added ${names.length} item(s)!`);
+        onRefresh();
+      };
+
+      const handleRemove = async (id) => {
+        if (!requireAuth('remove items')) return;
+        const res = await fetch(apiEndpoint, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: [id] })
+        });
+        if (res.status === 401) {
+          showToast('Please sign in with Google to remove items', '🔒');
+          return;
+        }
+        showToast('Removed item');
+        onRefresh();
+      };
+
+      return (
+        <div className="space-y-4 max-w-2xl">
+          <div>
+            <h3 className="text-sm font-extrabold text-stone-800">{title}</h3>
+            <p className="text-xs text-stone-500 mt-0.5">{hint}</p>
+          </div>
+
+          <form onSubmit={(e) => { e.preventDefault(); handleAdd(); }} className="flex gap-2">
+            <input
+              type="text"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              placeholder={placeholder}
+              className="flex-1 text-xs font-semibold bg-white border border-stone-200 rounded-2xl px-4 py-3 text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-orange-500 shadow-card"
+            />
+            <button type="submit" className="py-3 px-5 rounded-2xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-extrabold shadow-sm active:scale-95">
+              ＋ Add
+            </button>
+          </form>
+
+          {quickAdd && quickAdd.length > 0 && (
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-bold text-stone-400">Quick add common kitchen essentials:</span>
+              <div className="flex flex-wrap gap-1.5">
+                {quickAdd.filter(q => !items.some(i => i.name.toLowerCase() === q.toLowerCase())).map(q => (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => handleAdd([q])}
+                    className="px-2.5 py-1 rounded-xl bg-stone-100 hover:bg-orange-50 hover:text-orange-700 text-stone-700 text-[11px] font-semibold border border-stone-200 transition"
+                  >
+                    + {q}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2 pt-2">
+            {items.map(item => (
+              <span
+                key={item.id}
+                className="px-3 py-1.5 rounded-full bg-white border border-stone-200 text-stone-800 text-xs font-bold shadow-card flex items-center gap-2 group"
+              >
+                <span>{item.name}</span>
+                <button onClick={() => handleRemove(item.id)} className="text-stone-300 group-hover:text-red-500 font-extrabold text-xs">
+                  ✕
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // Component: Home Dishes Section with Pantry Quick-Picker & AI Autofill
+    // =========================================================================
+    function HomeDishesSection({ dishes, pantry, onRefresh, onEditDish, requireAuth, showToast }) {
+      const [name, setName] = useState('');
+      const [ingredients, setIngredients] = useState([]);
+      const [newIng, setNewIng] = useState('');
+      const [proposing, setProposing] = useState(false);
+      const [isFormOpen, setIsFormOpen] = useState(false);
+      const [pantrySearch, setPantrySearch] = useState('');
+
+      const handleProposeAi = async () => {
+        if (!name.trim()) {
+          showToast('Please type a dish name first', 'ℹ️');
+          return;
+        }
+        if (!requireAuth('propose ingredients')) return;
+        setProposing(true);
+        try {
+          const res = await fetch('/api/dishes/propose', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name.trim() })
+          });
+          const json = await res.json();
+          if (json.ok && json.ingredients && json.ingredients.length) {
+            const currentLower = ingredients.map(i => i.toLowerCase());
+            const merged = [...ingredients];
+            json.ingredients.forEach(item => {
+              if (!currentLower.includes(item.toLowerCase())) {
+                merged.push(item);
+                currentLower.push(item.toLowerCase());
+              }
+            });
+            setIngredients(merged);
+            showToast(`Added ${json.ingredients.length} typical ingredients! ✨`);
+          } else {
+            showToast('No typical ingredients found. Pick from your pantry below!', 'ℹ️');
+          }
+        } catch (e) {
+          showToast('Could not fetch AI suggestions', '❌');
+        } finally {
+          setProposing(false);
+        }
+      };
+
+      const togglePantryIngredient = (pantryName) => {
+        const trimmed = pantryName.trim();
+        const exists = ingredients.some(i => i.toLowerCase() === trimmed.toLowerCase());
+        if (exists) {
+          setIngredients(ingredients.filter(i => i.toLowerCase() !== trimmed.toLowerCase()));
+        } else {
+          setIngredients([...ingredients, trimmed]);
+        }
+      };
+
+      const addCustomIngredient = (e) => {
+        if (e) e.preventDefault();
+        const trimmed = newIng.trim();
+        if (!trimmed) return;
+        if (!ingredients.some(i => i.toLowerCase() === trimmed.toLowerCase())) {
+          setIngredients([...ingredients, trimmed]);
+        }
+        setNewIng('');
+      };
+
+      const removeIngredient = (ingToRemove) => {
+        setIngredients(ingredients.filter(i => i !== ingToRemove));
+      };
+
+      const handleSaveDish = async (e) => {
+        if (e) e.preventDefault();
+        if (!name.trim()) {
+          showToast('Please enter a dish name', '⚠️');
+          return;
+        }
+        if (!requireAuth('save recipe')) return;
+        try {
+          const res = await fetch('/api/dishes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: name.trim(),
+              ingredients: ingredients
+            })
+          });
+          if (res.status === 401) {
+            showToast('Please sign in with Google to save recipe', '🔒');
+            return;
+          }
+          showToast('Home recipe saved! ⭐');
+          setName('');
+          setIngredients([]);
+          setIsFormOpen(false);
+          onRefresh();
+        } catch (err) {
+          showToast('Failed to save recipe', '❌');
+        }
+      };
+
+      const handleDeleteDish = async (id) => {
+        if (!requireAuth('delete recipe')) return;
+        const res = await fetch(`/api/dishes/${id}`, { method: 'DELETE' });
+        if (res.status === 401) {
+          showToast('Please sign in with Google to delete recipe', '🔒');
+          return;
+        }
+        showToast('Dish deleted');
+        onRefresh();
+      };
+
+      const availablePantry = pantry || [];
+      const filteredPantry = pantrySearch.trim()
+        ? availablePantry.filter(p => p.name.toLowerCase().includes(pantrySearch.toLowerCase()))
+        : availablePantry;
+
+      return (
+        <div className="space-y-4">
+          <div className="p-4 rounded-2xl bg-orange-50/80 border border-orange-200 space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🍲</span>
+              <h3 className="text-sm font-black text-stone-900">Your Family's Home Recipe Book</h3>
+            </div>
+            <p className="text-xs text-stone-600 font-medium leading-relaxed">
+              <strong>The core of Cook AI:</strong> Save your everyday family favorites. Cook AI prioritizes matching these first whenever you ask what to cook, so you get familiar comfort food without random internet clutter!
+            </p>
+          </div>
+
+          {/* Add Recipe Trigger / Form */}
+          {!isFormOpen ? (
+            <button
+              onClick={() => setIsFormOpen(true)}
+              className="w-full py-3.5 px-4 rounded-2xl border-2 border-dashed border-orange-300 hover:border-orange-500 bg-orange-50/40 hover:bg-orange-50 text-orange-800 text-xs font-extrabold flex items-center justify-center gap-2 transition"
+            >
+              <span className="text-base">＋</span>
+              <span>Add a Home Recipe (Pick Pantry Items or Ask AI)</span>
+            </button>
+          ) : (
+            <div className="p-5 rounded-3xl bg-white border-2 border-orange-200 shadow-card space-y-4 animate-fade-in">
+              <div className="flex justify-between items-center">
+                <h4 className="text-sm font-black text-stone-900">Add New Home Recipe</h4>
+                <button
+                  type="button"
+                  onClick={() => { setIsFormOpen(false); setName(''); setIngredients([]); }}
+                  className="text-stone-400 hover:text-stone-700 text-xs font-bold"
+                >
+                  ✕ Close
+                </button>
+              </div>
+
+              {/* Recipe Name */}
+              <div>
+                <label className="text-xs font-bold text-stone-700 block mb-1">Recipe Name *</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    placeholder="e.g. Lentil Soup, Family Pasta, Vegetable Stir-Fry"
+                    className="flex-1 text-xs font-semibold bg-stone-50 border border-stone-200 rounded-xl px-4 py-2.5 text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleProposeAi}
+                    disabled={proposing || !name.trim()}
+                    className="py-2.5 px-4 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap disabled:opacity-50"
+                    title="Search AI for typical ingredients"
+                  >
+                    <span>{proposing ? '⏳ Finding…' : '✨ Ask AI Ingredients'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Pick from Pantry */}
+              {availablePantry.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[11px] font-extrabold text-stone-500 uppercase tracking-wider">
+                      Quick-Pick from Your Pantry ({availablePantry.length} items available):
+                    </label>
+                    {availablePantry.length > 8 && (
+                      <input
+                        type="text"
+                        value={pantrySearch}
+                        onChange={e => setPantrySearch(e.target.value)}
+                        placeholder="Filter pantry..."
+                        className="text-[11px] px-2 py-0.5 rounded-lg border border-stone-200 bg-stone-50"
+                      />
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2.5 rounded-2xl bg-stone-50 border border-stone-200/80">
+                    {filteredPantry.map(p => {
+                      const isSelected = ingredients.some(i => i.toLowerCase() === p.name.toLowerCase());
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => togglePantryIngredient(p.name)}
+                          className={`px-2.5 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1 ${
+                            isSelected
+                              ? 'bg-orange-600 text-white shadow-sm'
+                              : 'bg-white text-stone-700 border border-stone-200 hover:border-orange-300 hover:bg-orange-50/50'
+                          }`}
+                        >
+                          <span>{isSelected ? '✓' : '＋'}</span>
+                          <span>{p.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Add Custom Ingredient Input */}
+              <div>
+                <label className="text-[11px] font-extrabold text-stone-500 uppercase tracking-wider block mb-1">
+                  Or Type Custom Ingredient / Spice:
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newIng}
+                    onChange={e => setNewIng(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustomIngredient(); } }}
+                    placeholder="e.g. olive oil, black pepper, oregano"
+                    className="flex-1 text-xs font-semibold bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2 text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={addCustomIngredient}
+                    className="py-2 px-3.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold"
+                  >
+                    ＋ Add
+                  </button>
+                </div>
+              </div>
+
+              {/* Selected Ingredients Tag List */}
+              <div className="space-y-1.5 pt-1">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-extrabold text-stone-800">
+                    Recipe Ingredients ({ingredients.length})
+                  </label>
+                  {ingredients.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setIngredients([])}
+                      className="text-[10px] text-stone-400 hover:text-red-500 font-bold"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-1.5 p-3 rounded-2xl bg-orange-50/40 border border-orange-200/80 min-h-[50px]">
+                  {ingredients.map(ing => (
+                    <span
+                      key={ing}
+                      className="px-2.5 py-1 rounded-xl bg-white border border-orange-200 text-orange-950 text-xs font-bold flex items-center gap-1.5 shadow-sm"
+                    >
+                      <span>{ing}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeIngredient(ing)}
+                        className="text-stone-400 hover:text-red-600 font-bold ml-0.5"
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ))}
+                  {ingredients.length === 0 && (
+                    <span className="text-xs text-stone-400 italic">No ingredients added yet. Pick from your pantry above or click "Ask AI".</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Form Actions */}
+              <div className="flex gap-2 pt-2 border-t border-stone-100">
+                <button
+                  type="button"
+                  onClick={() => { setIsFormOpen(false); setName(''); setIngredients([]); }}
+                  className="py-2.5 px-4 rounded-xl border border-stone-200 text-xs font-bold text-stone-600 hover:bg-stone-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveDish}
+                  className="py-2.5 px-6 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-extrabold shadow-sm active:scale-95 flex-1"
+                >
+                  💾 Save Home Recipe
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Dishes List with Ingredient Chips & Edit Button */}
+          <div className="space-y-3">
+            {dishes.map(d => (
+              <div key={d.id} className="p-4 rounded-2xl bg-white border border-stone-200/90 shadow-card space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-extrabold text-stone-900">{d.name}</h4>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => onEditDish(d)}
+                      className="px-2.5 py-1 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 text-xs font-bold transition flex items-center gap-1"
+                      title="Edit dish name and ingredients"
+                    >
+                      <span>✏️</span>
+                      <span>Edit</span>
+                    </button>
+                    <button
+                      onClick={() => handleDeleteDish(d.id)}
+                      className="text-stone-300 hover:text-red-500 text-xs p-1"
+                      title="Delete recipe"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+
+                {/* Display ingredients as chips */}
+                <div>
+                  <div className="text-[10px] uppercase font-extrabold text-stone-400 tracking-wider mb-1">
+                    Ingredients ({d.ingredients.length}):
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {d.ingredients && d.ingredients.length > 0 ? (
+                      d.ingredients.map((ing, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2.5 py-0.5 rounded-lg bg-stone-100 border border-stone-200/60 text-stone-800 text-[11px] font-semibold"
+                        >
+                          {ing}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-stone-400 italic">No ingredients specified. Tap Edit to add them.</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // Component: Shopping List Section (with WhatsApp Copy)
+    // =========================================================================
+    function ShoppingSection({ items, onRefresh, requireAuth, showToast }) {
+      const [input, setInput] = useState('');
+
+      const handleAdd = async (e) => {
+        e.preventDefault();
+        if (!requireAuth('add shopping items')) return;
+        const names = input.split(/[,;\n]/).map(s => s.trim()).filter(Boolean);
+        if (!names.length) return;
+        const res = await fetch('/api/shopping', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ names })
+        });
+        if (res.status === 401) {
+          showToast('Please sign in with Google to add items', '🔒');
+          return;
+        }
+        setInput('');
+        showToast(`Added ${names.length} items to shopping list!`);
+        onRefresh();
+      };
+
+      const toggleBought = async (id, current) => {
+        if (!requireAuth('toggle shopping items')) return;
+        const res = await fetch(`/api/shopping/${id}/toggle`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bought: !current })
+        });
+        if (res.status === 401) {
+          showToast('Please sign in with Google to toggle items', '🔒');
+          return;
+        }
+        onRefresh();
+      };
+
+      const handleMoveToPantry = async () => {
+        if (!requireAuth('move items to pantry')) return;
+        const res = await fetch('/api/shopping/to-pantry', { method: 'POST' });
+        if (res.status === 401) {
+          showToast('Please sign in with Google', '🔒');
+          return;
+        }
+        const json = await res.json();
+        showToast(`Moved ${json.moved} items into your pantry! 📦`);
+        onRefresh();
+      };
+
+      const handleClearBought = async () => {
+        if (!requireAuth('clear shopping items')) return;
+        const res = await fetch('/api/shopping/clear', { method: 'DELETE' });
+        if (res.status === 401) {
+          showToast('Please sign in with Google', '🔒');
+          return;
+        }
+        showToast('Cleared bought items');
+        onRefresh();
+      };
+
+      const handleCopyAsText = () => {
+        const unbought = items.filter(i => !i.bought).map(i => `• ${i.name}`).join('\n');
+        if (!unbought) {
+          showToast('No unbought items to copy', '⚠️');
+          return;
+        }
+        const text = `🛒 Cook AI Shopping List:\n${unbought}`;
+        navigator.clipboard.writeText(text);
+        showToast('✓ Copied to clipboard! Ready to paste in WhatsApp/SMS');
+      };
+
+      const boughtCount = items.filter(i => i.bought).length;
+
+      return (
+        <div className="space-y-4 max-w-xl">
+          <div>
+            <h3 className="text-sm font-extrabold text-stone-800">Smart Grocery Shopping List</h3>
+            <p className="text-xs text-stone-500 mt-0.5">Collects missing ingredients from recipes. Check off items as you buy and move them directly into your pantry.</p>
+          </div>
+
+          <form onSubmit={handleAdd} className="flex gap-2">
+            <input
+              type="text"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              placeholder="e.g. coriander, paneer, olive oil"
+              className="flex-1 text-xs font-semibold bg-white border border-stone-200 rounded-2xl px-4 py-3 text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-orange-500 shadow-card"
+            />
+            <button type="submit" className="py-3 px-5 rounded-2xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-extrabold shadow-sm active:scale-95">
+              ＋ Add
+            </button>
+          </form>
+
+          {items.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              <button
+                onClick={handleCopyAsText}
+                className="py-2.5 px-4 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-extrabold transition flex items-center gap-1.5 active:scale-95"
+              >
+                <span>📋</span> Copy as Text (WhatsApp / SMS)
+              </button>
+              {boughtCount > 0 && (
+                <>
+                  <button
+                    onClick={handleMoveToPantry}
+                    className="py-2.5 px-4 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-extrabold transition active:scale-95"
+                  >
+                    📦 Move {boughtCount} to Pantry
+                  </button>
+                  <button
+                    onClick={handleClearBought}
+                    className="py-2.5 px-4 rounded-xl border border-stone-200 hover:bg-stone-100 text-stone-600 text-xs font-bold transition active:scale-95"
+                  >
+                    Clear Bought
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {items.length === 0 ? (
+            <div className="p-10 rounded-3xl bg-white border border-stone-200 text-center text-xs text-stone-400">
+              Your shopping list is empty. Add items above or tap "+ 🛒" on any "One step away" recipe!
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {items.map(item => (
+                <label
+                  key={item.id}
+                  className={`flex items-center justify-between p-3.5 rounded-2xl border transition cursor-pointer text-xs ${
+                    item.bought ? 'bg-stone-50 border-stone-200 text-stone-400 line-through' : 'bg-white border-stone-200 text-stone-800 shadow-card'
+                  }`}
+                >
+                  <span className="font-bold">{item.name}</span>
+                  <input
+                    type="checkbox"
+                    checked={item.bought}
+                    onChange={() => toggleBought(item.id, item.bought)}
+                    className="rounded border-stone-300 text-orange-600 focus:ring-orange-500 w-4 h-4"
+                  />
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // Component: History Section & Cumulative Savings Tracker
+    // =========================================================================
+    function HistorySection({ stats, showToast }) {
+      const [history, setHistory] = useState([]);
+      const [loading, setLoading] = useState(true);
+
+      useEffect(() => {
+        fetch('/api/history')
+          .then(r => r.json())
+          .then(d => setHistory(d.history || []))
+          .catch(() => {})
+          .finally(() => setLoading(false));
+      }, []);
+
+      return (
+        <div className="space-y-6 max-w-xl">
+          <div className="p-6 rounded-3xl bg-gradient-to-br from-stone-950 via-[#231713] to-[#361910] border border-orange-500/30 text-white shadow-card space-y-2.5">
+            <span className="text-xs uppercase font-extrabold tracking-wider text-amber-400">Zero-Waste Tracker</span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-extrabold tracking-tight">~${stats.money_saved}</span>
+              <span className="text-xs text-orange-200 font-bold">saved in prevented food waste</span>
+            </div>
+            <p className="text-xs text-orange-200/90 leading-relaxed">
+              You have rescued <strong>{stats.rescued_count} pantry ingredients</strong> from spoiling by cooking them on time!
+            </p>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-extrabold text-stone-800 mb-1">Cooking History</h3>
+            <p className="text-xs text-stone-500 mb-3">Record of meals you cooked. AI uses this to learn your preferred cuisines and avoid repeating recipes too soon.</p>
+
+            {loading ? (
+              <p className="text-xs text-stone-400">Loading history…</p>
+            ) : history.length === 0 ? (
+              <div className="p-8 rounded-3xl bg-white border border-stone-200 text-center text-xs text-stone-400">
+                No cooking history yet. Tap "I Cooked This Meal" on any recipe card!
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {history.map((h, idx) => (
+                  <div key={idx} className="p-4 rounded-2xl bg-white border border-stone-200 shadow-card flex justify-between items-center text-xs">
+                    <div>
+                      <span className="font-extrabold text-stone-800">{h.name}</span>
+                      <span className="text-[10px] text-stone-400 block mt-0.5">{h.cooked_at ? h.cooked_at.slice(0, 10) : ''}</span>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-stone-100 text-stone-600 capitalize">
+                      {h.source.replace('_', ' ')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // =========================================================================
+    // Component: Cooked Deduction Modal
+    // =========================================================================
+    function CookedDeductionModal({ recipe, pantry, onClose, onConfirm }) {
+      const [selectedIds, setSelectedIds] = useState([]);
+      
+      const rkeys = recipe.ingredients.map(i => i.toLowerCase());
+      const availableInPantry = pantry.filter(p => rkeys.some(rk => rk.includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(rk)));
+
+      const toggleItem = (id) => {
+        setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-stone-200 space-y-4">
+            <div>
+              <h3 className="text-base font-extrabold text-stone-900">Did you use up any ingredients?</h3>
+              <p className="text-xs text-stone-500 mt-0.5">Select items to deduct them from your pantry and record food rescue stats.</p>
+            </div>
+
+            {availableInPantry.length > 0 ? (
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                {availableInPantry.map(item => (
+                  <label key={item.id} className="flex items-center justify-between p-3 rounded-xl border border-stone-200 hover:bg-stone-50 cursor-pointer text-xs">
+                    <span className="font-bold text-stone-800">{item.name}</span>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(item.id)}
+                      onChange={() => toggleItem(item.id)}
+                      className="rounded border-stone-300 text-orange-600 focus:ring-orange-500 w-4 h-4"
+                    />
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-stone-400 italic">No matching ingredients found in pantry to deduct.</p>
+            )}
+
+            <div className="flex gap-2 pt-2 border-t border-stone-100">
+              <button onClick={onClose} className="py-3 px-4 rounded-2xl border border-stone-200 text-xs font-bold text-stone-600 hover:bg-stone-50 flex-1">
+                Skip
+              </button>
+              <button
+                onClick={() => onConfirm(selectedIds)}
+                className="py-3 px-4 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-extrabold flex-1 shadow-sm active:scale-95"
+              >
+                Save & Deduct
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

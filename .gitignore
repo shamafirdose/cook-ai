@@ -221,3 +221,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+.venv/
+*.pyc
+__pycache__/
+cook_ai_local.db
+.venv/
+*.pyc
+__pycache__/
+cook_ai_local.db
